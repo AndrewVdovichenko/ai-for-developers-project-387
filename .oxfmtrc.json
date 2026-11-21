@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "singleQuote": true,
+  "ignorePatterns": [
+    "**/generated/**",
+    "**/dist/**",
+    "yarn.lock",
+    "CHANGELOG.md",
+    ".release-please-manifest.json",
+    ".github/workflows/hexlet-check.yml"
+  ]
+}

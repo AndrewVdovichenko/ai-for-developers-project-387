@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": [
+    "openapi-ts.config.ts",
+    "vitest.config.ts",
+    "playwright.config.ts",
+    "apps/web/e2e/**/*.spec.ts"
+  ]
+}

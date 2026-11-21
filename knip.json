@@ -1,0 +1,23 @@
+{
+  "$schema": "https://unpkg.com/knip/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/*.mjs"],
+      "project": ["scripts/*.mjs", "*.ts"],
+      "ignoreBinaries": ["container"],
+      "ignoreDependencies": ["@typespec/http", "@typespec/openapi", "@typespec/openapi3"]
+    },
+    "apps/api": {
+      "entry": ["test/**/*.test.ts"],
+      "project": ["src/**/*.ts", "test/**/*.ts"]
+    },
+    "apps/web": {
+      "entry": ["e2e/**/*.spec.ts"],
+      "project": ["src/**/*.{ts,tsx}", "*.{ts,cjs}"]
+    },
+    "packages/api-client": {
+      "project": ["src/**/*.ts"],
+      "ignore": ["src/generated/**"]
+    }
+  }
+}

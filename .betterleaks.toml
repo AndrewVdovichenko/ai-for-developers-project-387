@@ -1,0 +1,10 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Generated Storybook vendor assets; source and stories remain scanned"
+paths = ['''(^|/)apps/web/dist/storybook/''']
+
+[[allowlists]]
+description = "Ephemeral Playwright artifacts; gitignored, regenerated, never committed"
+paths = ['''(^|/)test-results/''', '''(^|/)playwright-report/''']

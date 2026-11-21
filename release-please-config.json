@@ -1,0 +1,25 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "initial-version": "0.1.0",
+      "include-component-in-tag": false,
+      "include-v-in-tag": true,
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": false,
+      "changelog-path": "CHANGELOG.md",
+      "pull-request-title-pattern": "chore: выпуск ${version}",
+      "changelog-sections": [
+        { "type": "feat", "section": "Новые возможности" },
+        { "type": "fix", "section": "Исправления" },
+        { "type": "perf", "section": "Оптимизации" }
+      ],
+      "extra-files": [
+        { "type": "json", "path": "apps/api/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "apps/web/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "packages/api-client/package.json", "jsonpath": "$.version" }
+      ]
+    }
+  }
+}

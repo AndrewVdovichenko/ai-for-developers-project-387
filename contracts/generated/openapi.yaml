@@ -1,0 +1,1401 @@
+openapi: 3.0.0
+info:
+  title: Календарь звонков API
+  version: 0.0.0
+tags: []
+paths:
+  /api/bookings/{id}:
+    get:
+      operationId: getBooking
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/event-types:
+    get:
+      operationId: EventTypes_listEventTypes
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EventType'
+                required:
+                  - items
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/event-types/{id}:
+    get:
+      operationId: EventTypes_getEventType
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventType'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/event-types/{id}/availability:
+    get:
+      operationId: getSlotAvailability
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlotAvailability'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/guest-session:
+    get:
+      operationId: GuestSession_verifyGuest
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ready:
+                    type: boolean
+                required:
+                  - ready
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      operationId: GuestSession_prepareGuest
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ready:
+                    type: boolean
+                required:
+                  - ready
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/holds:
+    post:
+      operationId: selectHold
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HoldResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                eventTypeId:
+                  type: string
+                startsAt:
+                  $ref: '#/components/schemas/UtcInstant'
+              required:
+                - eventTypeId
+                - startsAt
+  /api/holds/current:
+    get:
+      operationId: getCurrentHold
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hold:
+                    type: object
+                    allOf:
+                      - $ref: '#/components/schemas/Hold'
+                    nullable: true
+                  serverNow:
+                    $ref: '#/components/schemas/UtcInstant'
+                required:
+                  - hold
+                  - serverNow
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/holds/{id}:
+    get:
+      operationId: getHold
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HoldResponse'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/holds/{id}/confirm:
+    post:
+      operationId: confirmHold
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmBooking'
+  /api/holds/{id}/release:
+    post:
+      operationId: releaseHold
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HoldResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/operations/{key}:
+    get:
+      operationId: getGuestOperation
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResult'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/owner/availability:
+    get:
+      operationId: OwnerAvailability_getAvailability
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailabilityResponse'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    put:
+      operationId: OwnerAvailability_saveAvailability
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailabilityResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveAvailability'
+  /api/owner/availability/preview:
+    post:
+      operationId: OwnerAvailability_previewAvailability
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailabilityPreview'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreviewAvailability'
+  /api/owner/bookings:
+    get:
+      operationId: listOwnerBookings
+      parameters:
+        - name: eventTypeId
+          in: query
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnerBookings'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/owner/event-types:
+    post:
+      operationId: createEventType
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventTypeCreated'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventType'
+  /api/owner/operations/{key}:
+    get:
+      operationId: getOwnerOperation
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResult'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/owner/session:
+    get:
+      operationId: OwnerSession_getOwnerSession
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionStatus'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      operationId: OwnerSession_loginOwner
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '429':
+          description: Client error
+          headers:
+            Retry-After:
+              required: true
+              schema:
+                type: integer
+                format: int32
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                password:
+                  type: string
+              required:
+                - password
+    delete:
+      operationId: OwnerSession_logoutOwner
+      parameters: []
+      responses:
+        '204':
+          description: There is no content to send for this request, but the headers may be useful.
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /health:
+    get:
+      operationId: getStatus
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - ok
+                required:
+                  - status
+components:
+  schemas:
+    AffectedHold:
+      type: object
+      required:
+        - expiresAt
+      properties:
+        expiresAt:
+          type: string
+      allOf:
+        - $ref: '#/components/schemas/AffectedInterval'
+    AffectedInterval:
+      type: object
+      required:
+        - id
+        - eventTypeId
+        - eventTypeName
+        - startsAt
+        - endsAt
+      properties:
+        id:
+          type: string
+        eventTypeId:
+          type: string
+        eventTypeName:
+          type: string
+        startsAt:
+          type: string
+        endsAt:
+          type: string
+    ApiError:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          enum:
+            - INVALID_REQUEST
+            - OWNER_AUTH_REQUIRED
+            - INVALID_PASSWORD
+            - ORIGIN_NOT_ALLOWED
+            - OWNER_NOT_CONFIGURED
+            - LOGIN_RATE_LIMITED
+            - TEMPORARILY_UNAVAILABLE
+            - INTERNAL_ERROR
+            - VALIDATION_FAILED
+            - IDEMPOTENCY_KEY_REQUIRED
+            - IDEMPOTENCY_KEY_REUSED
+            - EVENT_TYPE_NOT_FOUND
+            - REVISION_CONFLICT
+            - PREVIEW_REQUIRED
+            - GUEST_SESSION_REQUIRED
+            - HOLD_UNAVAILABLE
+            - SLOT_UNAVAILABLE
+            - SLOT_STARTED
+            - SLOT_NO_LONGER_OFFERED
+            - HOLD_ALREADY_CONFIRMED
+            - HOLD_REPLACED
+            - HOLD_RELEASED
+            - BOOKING_UNAVAILABLE
+            - INVALID_FILTER
+        message:
+          type: string
+        fieldErrors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              code:
+                type: string
+              message:
+                type: string
+            required:
+              - field
+              - code
+              - message
+        retryAfterSeconds:
+          type: integer
+          format: int32
+    AvailabilityPreview:
+      type: object
+      required:
+        - confirmationToken
+        - expiresAt
+        - serverNow
+        - affectedBookings
+        - affectedHolds
+      properties:
+        confirmationToken:
+          type: string
+        expiresAt:
+          type: string
+        serverNow:
+          type: string
+        affectedBookings:
+          type: array
+          items:
+            $ref: '#/components/schemas/AffectedInterval'
+        affectedHolds:
+          type: array
+          items:
+            $ref: '#/components/schemas/AffectedHold'
+    AvailabilityResponse:
+      type: object
+      required:
+        - availability
+        - serverNow
+      properties:
+        availability:
+          $ref: '#/components/schemas/AvailabilitySettings'
+        serverNow:
+          type: string
+    AvailabilitySettings:
+      type: object
+      required:
+        - configured
+        - timeZone
+        - revision
+        - days
+      properties:
+        configured:
+          type: boolean
+        timeZone:
+          type: string
+          nullable: true
+        revision:
+          type: integer
+          format: int32
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeeklyDay'
+          description: 'Ровно семь неповторяющихся дней: понедельник 1 — воскресенье 7.'
+    Booking:
+      type: object
+      required:
+        - id
+        - holdId
+        - eventTypeId
+        - eventTypeName
+        - startsAt
+        - endsAt
+        - guestName
+        - guestEmail
+      properties:
+        id:
+          type: string
+        holdId:
+          type: string
+        eventTypeId:
+          type: string
+        eventTypeName:
+          type: string
+        startsAt:
+          $ref: '#/components/schemas/UtcInstant'
+        endsAt:
+          $ref: '#/components/schemas/UtcInstant'
+        guestName:
+          type: string
+        guestEmail:
+          type: string
+    BookingResponse:
+      type: object
+      required:
+        - booking
+        - serverNow
+      properties:
+        booking:
+          $ref: '#/components/schemas/Booking'
+        serverNow:
+          $ref: '#/components/schemas/UtcInstant'
+    ConfirmBooking:
+      type: object
+      required:
+        - guestName
+        - guestEmail
+      properties:
+        guestName:
+          type: string
+          description: 'Обязательное имя: 1–100 кодовых точек после trim.'
+        guestEmail:
+          type: string
+          description: До 254 кодовых точек после trim; регистр сохраняется, формат ^[^\s@]+@[^\s@]+\.[^\s@]+$ с флагом u.
+    CreateEventType:
+      type: object
+      required:
+        - name
+        - durationMinutes
+      properties:
+        name:
+          type: string
+          pattern: ^[^\u0000]*$
+          description: 'Название после trim: 1–100 кодовых точек; U+0000 запрещён.'
+        description:
+          type: string
+          pattern: ^[^\u0000]*$
+          description: До 2000 кодовых точек; переносы сохраняются, U+0000 запрещён.
+        durationMinutes:
+          type: integer
+          format: int32
+    EventType:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - durationMinutes
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        durationMinutes:
+          type: integer
+          format: int32
+    EventTypeCreated:
+      type: object
+      required:
+        - eventType
+      properties:
+        eventType:
+          $ref: '#/components/schemas/EventType'
+    Hold:
+      type: object
+      required:
+        - id
+        - eventTypeId
+        - startsAt
+        - endsAt
+        - expiresAt
+        - state
+        - bookingId
+      properties:
+        id:
+          type: string
+        eventTypeId:
+          type: string
+        startsAt:
+          $ref: '#/components/schemas/UtcInstant'
+        endsAt:
+          $ref: '#/components/schemas/UtcInstant'
+        expiresAt:
+          $ref: '#/components/schemas/UtcInstant'
+        state:
+          type: string
+          enum:
+            - active
+            - expired
+            - released
+            - replaced
+            - confirmed
+        bookingId:
+          type: string
+          nullable: true
+    HoldResponse:
+      type: object
+      required:
+        - hold
+        - serverNow
+      properties:
+        hold:
+          $ref: '#/components/schemas/Hold'
+        serverNow:
+          $ref: '#/components/schemas/UtcInstant'
+    OperationResponse:
+      type: object
+      required:
+        - status
+        - body
+      properties:
+        status:
+          type: integer
+          format: int32
+        body:
+          anyOf:
+            - $ref: '#/components/schemas/EventTypeCreated'
+            - $ref: '#/components/schemas/AvailabilityResponse'
+            - $ref: '#/components/schemas/HoldResponse'
+            - $ref: '#/components/schemas/BookingResponse'
+            - $ref: '#/components/schemas/ApiError'
+    OperationResult:
+      anyOf:
+        - type: object
+          properties:
+            state:
+              type: string
+              enum:
+                - unknown
+          required:
+            - state
+        - type: object
+          properties:
+            state:
+              type: string
+              enum:
+                - completed
+            response:
+              $ref: '#/components/schemas/OperationResponse'
+          required:
+            - state
+            - response
+    OwnerBookings:
+      type: object
+      required:
+        - items
+        - serverNow
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Booking'
+        serverNow:
+          $ref: '#/components/schemas/UtcInstant'
+    PreviewAvailability:
+      type: object
+      required:
+        - revision
+        - timeZone
+        - days
+      properties:
+        revision:
+          type: integer
+          format: int32
+        timeZone:
+          type: string
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeeklyDay'
+    SaveAvailability:
+      type: object
+      required:
+        - revision
+        - timeZone
+        - days
+      properties:
+        revision:
+          type: integer
+          format: int32
+          minimum: 0
+        timeZone:
+          type: string
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeeklyDay'
+          description: 'Ровно семь неповторяющихся дней: понедельник 1 — воскресенье 7.'
+        confirmationToken:
+          type: string
+    Session:
+      type: object
+      required:
+        - authenticated
+        - expiresAt
+        - serverNow
+      properties:
+        authenticated:
+          type: boolean
+        expiresAt:
+          type: string
+          nullable: true
+        serverNow:
+          type: string
+    SessionStatus:
+      type: object
+      required:
+        - configured
+      properties:
+        configured:
+          type: boolean
+      allOf:
+        - $ref: '#/components/schemas/Session'
+    Slot:
+      type: object
+      required:
+        - startsAt
+        - endsAt
+      properties:
+        startsAt:
+          $ref: '#/components/schemas/UtcInstant'
+        endsAt:
+          $ref: '#/components/schemas/UtcInstant'
+    SlotAvailability:
+      type: object
+      required:
+        - configured
+        - serverNow
+        - timeZone
+        - windowStartsAt
+        - windowEndsAt
+        - slots
+      properties:
+        configured:
+          type: boolean
+        serverNow:
+          $ref: '#/components/schemas/UtcInstant'
+        timeZone:
+          type: string
+          nullable: true
+        windowStartsAt:
+          type: string
+          allOf:
+            - $ref: '#/components/schemas/UtcInstant'
+          nullable: true
+        windowEndsAt:
+          type: string
+          allOf:
+            - $ref: '#/components/schemas/UtcInstant'
+          nullable: true
+        slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slot'
+    UtcInstant:
+      type: string
+      pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$
+      description: Concrete UTC instants always include milliseconds and Z.
+    WeeklyDay:
+      type: object
+      required:
+        - weekday
+        - intervals
+      properties:
+        weekday:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 7
+        intervals:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkingInterval'
+    WorkingInterval:
+      type: object
+      required:
+        - startMinute
+        - endMinute
+      properties:
+        startMinute:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 1439
+        endMinute:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 1440
+servers:
+  - url: http://127.0.0.1:3000
+    description: Локальная разработка
+    variables: {}
