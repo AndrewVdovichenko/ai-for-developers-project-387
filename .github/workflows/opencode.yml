@@ -1,24 +1,24 @@
 name: opencode
 
 on:
-  # Событие может создать любой комментатор, но job запускается только для
-  # доверенных авторов (фильтр author_association в if), код из PR форков не
-  # исполняется: checkout только базового репозитория с fetch-depth: 1.
+  # Событие может создать любой комментатор, но  job запускается только
+  # для доверенных авторов (фильтр author_association в  if), код из  PR форков не
+  # исполняется: checkout только базового репозитория с fetch-depth: 1.
   # jactionlint ignore=dangerous-triggers
   issue_comment:
     types: [created]
 
 permissions:
   contents: read
-  # OIDC нужен стандартному режиму интеграции: обмен на installation token
-  # GitHub App opencode-agent для ответов в комментарии. Секреты недоступны
-  # недоверенным авторам — запуск ограничен фильтром в if.
+  # OIDC нужен стандартному режиму интеграции: обмен на  installation token
+  # GitHub App opencode-agent для  ответов в  комментарии. Секреты недоступны
+  # недоверенным авторам — запуск ограничен фильтром в  if.
   # jactionlint ignore=excessive-permissions
   id-token: write
 
 jobs:
   opencode:
-    # Гейт регистрозависим: команды фиксируем строчными, как в README.
+    # Гейт регистрозависим: команды фиксируем строчными, как в  README.
     if: |
       (contains(github.event.comment.body, '/oc') ||
         contains(github.event.comment.body, '/opencode')) &&
