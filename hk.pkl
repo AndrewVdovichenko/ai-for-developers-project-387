@@ -5,12 +5,12 @@ hooks {
     steps {
       ["format"] {
         glob = List("**/*.{ts,tsx,js,mjs,cjs,json,yml,yaml,md,toml}")
-        exclude = List("**/generated/**", ".github/workflows/hexlet-check.yml")
+        exclude = List("**/generated/**", ".github/workflows/hexlet-check.yml", "**/.agents/**")
         check = "yarn exec oxfmt --check {{files}}"
       }
       ["lint"] {
         glob = List("**/*.{ts,tsx,js,mjs,cjs}")
-        exclude = List("**/generated/**")
+        exclude = List("**/generated/**", "**/.agents/**")
         check = "yarn exec oxlint --deny-warnings {{files}}"
       }
       ["secrets"] {

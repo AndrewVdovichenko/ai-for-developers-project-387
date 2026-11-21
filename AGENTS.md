@@ -5,6 +5,7 @@
 - Окружение: `mise trust`, `mise install`, `mise run setup`.
 - Разработка: `mise run dev`; управление серверами: `mise run dev:status`, `mise run dev:logs`, `mise run dev:stop`.
 - Тесты: `mise run test` (Vitest: API-smoke) и `mise run test:e2e` (Playwright e2e, со сборкой фронтенда). Браузер ставится `mise run setup`; разово обновить — `yarn playwright install chromium`.
+- База данных: `mise run db:start`, `db:migrate`, `db:status`, `db:stop` (Apple Container); пароль Владельца — `mise run owner:password`. Тест персистентности — `mise run test:persistence`, требует Apple Container.
 - Генерация OpenAPI и SDK: `mise run generate`.
 - Сборка: `mise run build`.
 - Все проверки: `mise run check`; форматирование: `mise run fix`.
@@ -15,6 +16,7 @@
 - `apps/api` — бекенд Fastify; `apps/web` — фронтенд React/Vite/Mantine.
 - `packages/api-client` — SDK, используемый фронтендом и HTTP-тестом.
 - `contracts/main.tsp` — источник API-контракта.
+- `.agents/skills` — вендорные скиллы агента (см. README каталога); `.github/workflows/opencode.yml` — ответ агента на команды `/oc` в комментариях (см. README секцию «Агент в GitHub»).
 
 ## Правила
 
