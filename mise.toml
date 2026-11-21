@@ -1,0 +1,91 @@
+[settings]
+experimental = true
+
+[tools]
+node = "26.13.1"
+yarn = "4.18.1"
+hk = "2.12.0"
+pitchfork = "2.34.0"
+"github:betterleaks/betterleaks" = "1.10.1"
+"github:jdx/jactionlint" = "2.6.0"
+"github:google/osv-scanner" = "2.7.1"
+gh = "latest"
+
+[env]
+_.path = ["node_modules/.bin"]
+
+[daemons.api]
+run = "exec yarn workspace @calendar/api dev"
+port = 3000
+ready_port = 3000
+
+[daemons.web]
+run = "exec yarn workspace @calendar/web dev"
+port = 5173
+ready_port = 5173
+depends = ["api"]
+
+[tasks.setup]
+description = "Установить зависимости, сгенерировать SDK, скачать браузер e2e и подключить git-хуки"
+run = [
+  "yarn install --immutable",
+  "yarn generate",
+  "yarn playwright install chromium",
+  "hk install --mise",
+]
+
+[tasks.dev]
+description = "Запустить серверы разработки"
+run = "mise daemons start"
+
+[tasks."dev:stop"]
+run = "mise daemons stop"
+
+[tasks."dev:status"]
+run = "mise daemons status"
+
+[tasks."dev:logs"]
+run = "mise daemons logs"
+
+[tasks.generate]
+run = "yarn generate"
+
+[tasks."db:start"]
+description = "Запустить локальную PostgreSQL в Apple Container с постоянным томом"
+run = "node scripts/database.mjs start"
+
+[tasks."db:stop"]
+run = "node scripts/database.mjs stop"
+
+[tasks."db:status"]
+run = "node scripts/database.mjs status"
+
+[tasks."db:migrate"]
+run = "yarn workspace @calendar/api migrate"
+
+[tasks."owner:password"]
+run = "yarn workspace @calendar/api owner:setup"
+
+[tasks.build]
+run = "yarn build"
+
+[tasks.test]
+description = "Запустить Vitest: HTTP API и PostgreSQL"
+run = "yarn test"
+
+[tasks."test:persistence"]
+description = "Проверить пересоздание PostgreSQL с тем же томом в Apple Container"
+run = "yarn workspace @calendar/api test:persistence"
+
+[tasks."test:e2e"]
+description = "Собрать фронтенд и прогнать Playwright e2e"
+run = ["yarn build", "yarn test:e2e"]
+
+[tasks.check]
+run = "yarn check"
+
+[tasks.fix]
+run = "yarn fix"
+
+[tasks."security:audit"]
+run = "osv-scanner scan source --lockfile=yarn.lock"

@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+test-results/
+playwright-report/
+.yarn/*
+!.yarn/patches/
+.env
+.env.*
+!.env.example
+.DS_Store
+*.tsbuildinfo
+.mise.local.toml

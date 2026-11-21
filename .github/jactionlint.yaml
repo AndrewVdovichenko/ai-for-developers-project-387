@@ -1,0 +1,4 @@
+ignores:
+  - rule: duplicate-triggers
+    file: .github/workflows/check.yml
+    reason: Проверки требуются на каждый push и pull request, включая ветки с открытым PR.

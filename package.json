@@ -1,0 +1,48 @@
+{
+  "name": "calendar",
+  "version": "0.6.1",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "generate": "tsp compile contracts && openapi-ts",
+    "check:generated": "node scripts/check-generated.mjs",
+    "format:check": "oxfmt --check .",
+    "format": "oxfmt --write .",
+    "lint": "oxlint --deny-warnings .",
+    "typecheck": "tsc -p tsconfig.tools.json && yarn workspaces foreach -A --exclude calendar run typecheck",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "build": "yarn workspace @calendar/api build && yarn workspace @calendar/web build",
+    "check": "node scripts/check.mjs",
+    "fix": "yarn format",
+    "check:unused": "knip",
+    "check:architecture": "depcruise apps packages --config .dependency-cruiser.cjs",
+    "check:versions": "syncpack lint"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "0.99.0",
+    "@playwright/test": "1.65.1",
+    "@types/node": "26.6.6",
+    "@typescript/native": "npm:typescript@7.0.2",
+    "@typespec/compiler": "1.18.0",
+    "@typespec/http": "1.18.0",
+    "@typespec/openapi": "1.18.0",
+    "@typespec/openapi3": "1.18.0",
+    "dependency-cruiser": "18.7.2",
+    "knip": "6.45.1",
+    "oxfmt": "0.78.0",
+    "oxlint": "1.93.0",
+    "syncpack": "15.3.3",
+    "typescript": "npm:@typescript/typescript6@6.0.2",
+    "vite": "8.3.8",
+    "vitest": "5.1.0"
+  },
+  "resolutions": {
+    "js-yaml": "4.3.2"
+  },
+  "packageManager": "yarn@4.18.1"
+}

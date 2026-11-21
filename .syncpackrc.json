@@ -1,0 +1,28 @@
+{
+  "$schema": "./node_modules/syncpack/schema.json",
+  "source": ["package.json", "apps/*/package.json", "packages/*/package.json"],
+  "versionGroups": [
+    {
+      "label": "Compiler API compatibility for tooling",
+      "packages": ["calendar"],
+      "dependencies": ["typescript"],
+      "pinVersion": "npm:@typescript/typescript6@6.0.2"
+    },
+    {
+      "label": "Local packages",
+      "dependencies": ["@calendar/**"],
+      "pinVersion": "workspace:*",
+      "dependencyTypes": ["prod", "dev"]
+    }
+  ],
+  "semverGroups": [
+    {
+      "dependencies": ["@calendar/**"],
+      "range": "workspace:*"
+    },
+    {
+      "dependencies": ["**"],
+      "range": ""
+    }
+  ]
+}

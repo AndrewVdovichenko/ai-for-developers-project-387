@@ -1,0 +1,12 @@
+.git
+.env
+.env.*
+node_modules
+**/node_modules
+**/dist
+.yarn/cache
+.yarn/install-state.gz
+coverage
+test-results
+playwright-report
+.codex
