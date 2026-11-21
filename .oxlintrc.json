@@ -2,5 +2,11 @@
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript", "react", "react-hooks", "jsx-a11y", "import"],
   "categories": { "correctness": "error" },
-  "ignorePatterns": ["**/dist/**", "**/generated/**", "node_modules/**", ".yarn/**"]
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/generated/**",
+    "**/.agents/**",
+    "node_modules/**",
+    ".yarn/**"
+  ]
 }

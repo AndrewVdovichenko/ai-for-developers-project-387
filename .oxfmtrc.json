@@ -4,6 +4,7 @@
   "ignorePatterns": [
     "**/generated/**",
     "**/dist/**",
+    "**/.agents/**",
     "yarn.lock",
     "CHANGELOG.md",
     ".release-please-manifest.json",
