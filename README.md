@@ -244,6 +244,54 @@ Workflow Хекслета сохранён без изменений и искл
 Коммиты: Conventional Commits с описанием на русском, например
 `chore: добавить каркас приложения`. В теле — краткое описание изменений.
 
+## Агент в GitHub
+
+`.github/workflows/opencode.yml` запускает OpenCode-агента в GitHub Actions: он отвечает
+на команды доверенных участников в комментариях к issues и PR. Назначение — разбирать
+и объяснять issues, отвечать на вопросы по коду и настройкам прямо в обсуждении;
+результат — комментарий `opencode-agent[bot]` и прогон в Actions (ссылка `[github run]`
+в комментарии).
+
+- **Событие:** только `issue_comment` типа `created`; редактирование комментариев прогон
+  не запускает.
+- **Команды:** заданы явно input-ом `mentions: /opencode,/oc`; текст после фразы — постановка задачи.
+  Гейт воркфлоу чувствителен к регистру, поэтому команды фиксируем строчными. Пример вызова: `/oc explain this issue`.
+- **Фильтр запуска:** автор комментария — доверенный участник (`OWNER`, `MEMBER` или `COLLABORATOR`),
+  логин без `[bot]` — команды ботов игнорируются. Недоверенные авторы (внешние
+  участники и форки) job не запускают, поэтому секреты к ним не попадают;
+  встроенная проверка экшена дополнительно требует write/admin-доступ у автора команды.
+- **Модель:** `opencode/qwen3.8-flash` через OpenCode Console (zero-retention); ключ —
+  repository secret `OPENCODE_API_KEY`, передаётся в step через `env`.
+- **Авторизация и права:** стандартный OIDC-режим: `contents: read`, `id-token: write`,
+  checkout с `persist-credentials: false`. Агент работает installation-токеном GitHub App
+  `opencode-agent` — его права шире блока `permissions:`, поэтому границы сценария задают
+  фильтр запуска и команды, а не только права.
+- **Гигиена прогона:** `timeout-minutes: 15`; одна очередь `concurrency`
+  (`opencode-issue-agent`, `cancel-in-progress: false`) ограничивает параллельные запуски.
+- **Share:** публичных ссылок на сессии не создаётся — явный `share: false` и прекращённый
+  в CI-сборке session sharing; доказательство работы — журнал прогона и комментарий бота.
+- **Скиллы и настройки:** после checkout раннер видит `.agents/skills/` (вендорный набор
+  `mattpocock/skills`) и  `docs/agents/`, поэтому отвечает по конфигурации трекера
+  и  правилам репозитория.
+
+CI-экшен исполняет OpenCode V1-линейки — так устроена интеграция; локальный V2 это не
+затрагивает. `opencode.json` в репозитории намеренно нет: конфиг CI-агента целиком живёт
+в файле воркфлоу.
+
+### Установка и воспроизведение
+
+GitHub App <https://github.com/apps/opencode-agent> установлен только на этот репозиторий,
+ключ Console записан в repository secret `OPENCODE_API_KEY`. Для воспроизведения на новом
+репозитории:
+
+1. Установить App из галереи, выбрав один репозиторий.
+2. Записать ключ: `gh secret set OPENCODE_API_KEY` (или Settings → Secrets and variables →
+   Actions).
+3. Замержить `.github/workflows/opencode.yml` в `main`.
+
+Проверка: создать issue, оставить в нём комментарий `/oc explain this issue`, дождаться
+ответа бота и найти прогон `opencode` во вкладке Actions.
+
 ## Релизы
 
 [release-please](https://github.com/googleapis/release-please-action) поддерживает

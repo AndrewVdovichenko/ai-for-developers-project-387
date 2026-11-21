@@ -1,0 +1,48 @@
+name: opencode
+
+on:
+  # Событие может создать любой комментатор, но job запускается только для
+  # доверенных авторов (фильтр author_association в if), код из PR форков не
+  # исполняется: checkout только базового репозитория с fetch-depth: 1.
+  # jactionlint ignore=dangerous-triggers
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  # OIDC нужен стандартному режиму интеграции: обмен на installation token
+  # GitHub App opencode-agent для ответов в комментарии. Секреты недоступны
+  # недоверенным авторам — запуск ограничен фильтром в if.
+  # jactionlint ignore=excessive-permissions
+  id-token: write
+
+jobs:
+  opencode:
+    # Гейт регистрозависим: команды фиксируем строчными, как в README.
+    if: |
+      (contains(github.event.comment.body, '/oc') ||
+        contains(github.event.comment.body, '/opencode')) &&
+      !endsWith(github.event.comment.user.login, '[bot]') &&
+      (github.event.comment.author_association == 'OWNER' ||
+        github.event.comment.author_association == 'MEMBER' ||
+        github.event.comment.author_association == 'COLLABORATOR')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: opencode-issue-agent
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Run OpenCode
+        uses: anomalyco/opencode/github@2c14fc5586fe0b88e5c04732d2e846769cc35671 # latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        with:
+          model: opencode/qwen3.8-flash
+          mentions: /opencode,/oc
+          share: false
