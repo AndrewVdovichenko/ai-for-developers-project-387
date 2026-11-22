@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/compare/v0.7.0...v0.7.1) (2026-11-22)
+
+
+### Исправления
+
+* запретить permission-ask у CI-агента OpenCode ([#8](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/issues/8)) ([8ba4458](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/commit/8ba445823024a26cb61364f09e54a49eda888556)), closes [#4](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/issues/4)
+
 ## [0.7.0](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/compare/v0.6.1...v0.7.0) (2026-11-21)
 
 
