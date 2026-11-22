@@ -8,7 +8,13 @@ import {
 } from '@calendar/api-client';
 import type { Page } from '@playwright/test';
 const baseUrl = 'http://127.0.0.1:3001',
-  origin = 'http://127.0.0.1:4174';
+  origin = 'http://127.0.0.1:4174',
+  // Служебные ключи хранилища приложения: префикс идентификатора вкладки
+  // задан в apps/web/src/operation-storage.ts, база имени записи — в
+  // apps/web/src/booking-draft.ts ('guest-confirmation'). При смене формата
+  // в приложении синхронно править эти константы.
+  tabIdPrefix = 'calendar-tab:',
+  guestConfirmationKeyPrefix = 'guest-confirmation:';
 async function setup() {
   const login = await ownerSessionLoginOwner({
     baseUrl,
@@ -165,6 +171,7 @@ test('503 сохраняет ключ и параметры; интервалы
   let key = '',
     gets = 0;
   await page.clock.install();
+  await page.clock.pauseAt(Date.now() + 1000);
   await page.route('**/api/holds/*/confirm', async (route) => {
     key = route.request().headers()['idempotency-key']!;
     await route.abort();
@@ -177,13 +184,29 @@ test('503 сохраняет ключ и параметры; интервалы
       json: { code: 'SERVICE_UNAVAILABLE', message: 'technical' },
     });
   });
-  await page.getByRole('button', { name: 'Подтвердить запись', exact: true }).click();
+  // Enter по нативной submit-кнопке запускает onSubmit формы без pointer-пути:
+  // проверки actionability у click() зависят от времени и не проходят при
+  // остановленных виртуальных часах.
+  await page.getByRole('button', { name: 'Подтвердить запись', exact: true }).press('Enter');
   await expect(page.getByRole('alert')).toContainText('Уточняем результат');
   for (const [index, delay] of [1000, 2000, 4000, 10000, 10000].entries()) {
     await page.clock.runFor(delay - 1);
     expect(gets).toBe(index);
     await page.clock.runFor(1);
-    await expect.poll(() => gets).toBe(index + 1);
+    // После ответа дождаться записи номера попытки и постановки следующего таймера.
+    await expect
+      .poll(() =>
+        page.evaluate(
+          ({ tab, confirmation }) => {
+            const tabId = window.name.slice(tab.length);
+            const record = localStorage.getItem(`${confirmation}${tabId}`);
+            return record && JSON.parse(record).context?.attempt;
+          },
+          { tab: tabIdPrefix, confirmation: guestConfirmationKeyPrefix },
+        ),
+      )
+      .toBe(index + 1);
+    expect(gets).toBe(index + 1);
     await expect(page.getByLabel('Имя', { exact: true })).toBeDisabled();
   }
   await page.unroute('**/api/operations/*');

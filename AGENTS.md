@@ -30,7 +30,7 @@
 
 ## Коммиты
 
-- Conventional Commits: `feat: …`, `fix: …`, `chore: …`, `docs: …`; описание на русском. В теле кратко перечисли изменения.
+- Conventional Commits: `feat: …`, `fix: …`, `chore: …`, `docs: …`, `ci: …`, `test: …`; описание на русском. В теле кратко перечисли изменения.
 - Создавай коммиты с `git commit --no-gpg-sign …`.
 
 ## Agent skills
