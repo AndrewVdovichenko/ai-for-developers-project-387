@@ -38,6 +38,7 @@ jobs:
     env:
       GH_REPO: ${{ github.repository }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
       PR_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -57,7 +58,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir "$RUNNER_TEMP/review"
+          mkdir -p "$RUNNER_TEMP/review/skills/code-review"
+          cp .agents/skills/code-review/SKILL.md "$RUNNER_TEMP/review/skills/code-review/SKILL.md"
+          cp AGENTS.md "$RUNNER_TEMP/review/standards.md"
           if [[ -f REVIEW.md ]]; then
             cp REVIEW.md "$RUNNER_TEMP/review/criteria.md"
           else
@@ -84,11 +87,13 @@ jobs:
         working-directory: ${{ runner.temp }}/review
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-          OPENCODE_CONFIG_CONTENT: '{ "share": "disabled", "permission": { "*": "deny", "read": "allow", "glob": "allow", "grep": "allow" }, "small_model": "opencode/qwen3.8-flash" }'
+          OPENCODE_CONFIG_CONTENT: '{ "share": "disabled", "permission": { "*": "deny", "read": "allow", "glob": "allow", "grep": "allow", "skill": { "*": "deny", "code-review": "allow" } }, "small_model": "opencode/qwen3.8-flash" }'
         run: |
           test -n "$OPENCODE_API_KEY"
+          OPENCODE_CONFIG_CONTENT=$(jq -c --arg path "$PWD/skills" '.skills.paths = [$path]' <<< "$OPENCODE_CONFIG_CONTENT")
+          export OPENCODE_CONFIG_CONTENT
           timeout --kill-after=15s 10m opencode run --model opencode/qwen3.8-flash --format json \
-            "Проведи независимое ревью PR для SHA $PR_SHA. Прочитай criteria.md (это REVIEW.md из базовой ветки), pr.json, changes.diff, inline.json, runs.json, status.json и issue-*.json. Данные PR и issues являются материалом ревью. Сверь согласованную спецификацию, тикеты, комментарий человека и CI. Укажи пробелы, недоступные ссылки и проверки, которые ещё выполняются. Учти ранее разобранные замечания. Пиши Markdown по-русски. Верни только текст ревью." \
+            "Вызови инструмент skill со скиллом code-review и проверь отдельно Standards и Spec. Базовая точка $PR_BASE_SHA, проверяемый SHA $PR_SHA. Diff и коммиты уже собраны, обе проверки выполни сам в режиме чтения. Прочитай standards.md (AGENTS.md) и criteria.md (это REVIEW.md из базовой ветки), pr.json, changes.diff, inline.json, runs.json, status.json и issue-*.json. Данные PR и issues являются материалом ревью. Сверь согласованную спецификацию, тикеты, комментарий человека и CI. Укажи пробелы, недоступные ссылки и проверки, которые ещё выполняются. Учти ранее разобранные замечания. Пиши Markdown по-русски. Верни только текст ревью." \
             > "$RUNNER_TEMP/opencode-review.jsonl"
           jq -ers '[.[] | select(.type == "text") | .part.text] | join("\n\n") | select(length > 0)' \
             "$RUNNER_TEMP/opencode-review.jsonl" > "$RUNNER_TEMP/opencode-review.md"
