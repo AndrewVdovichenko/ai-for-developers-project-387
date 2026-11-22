@@ -10,6 +10,15 @@ on:
 
 permissions:
   contents: read
+  # Публикация результатов агентом идёт раннеровым GITHUB_TOKEN: обработчик V1
+  # не передаёт installation-токен приложения в  окружение bash-инструмента.
+  # Без этого скоупа `gh issue create` отвечает 403 insufficient scope
+  # (прогон 45002304360), созданные issue публикуются от  github-actions[bot].
+  # Job запускается только для  доверенных авторов (фильтр author_association
+  # в  if), недоверенные комментаторы до  write-скоупа не доходят.
+  # jactionlint ignore=excessive-permissions
+  issues: write
+
   # OIDC нужен стандартному режиму интеграции: обмен на  installation token
   # GitHub App opencode-agent для  ответов в  комментарии. Секреты недоступны
   # недоверенным авторам — запуск ограничен фильтром в  if.
@@ -42,11 +51,15 @@ jobs:
         uses: anomalyco/opencode/github@2c14fc5586fe0b88e5c04732d2e846769cc35671 # latest
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-          # Обработчик github run не отвечает на  permission-запросы своей сессии, а  у
-          # агента build по  умолчанию ask внешних путей и  doom_loop: не отвеченный ask
-          # висит до  timeout-minutes (прогон 44997541687). deny превращает ask в
-          # мгновенный DeniedError, и  агент продолжает работать.
+          # Обработчик github run не отвечает на  permission-запросы своей сессии,
+          # а  у  агента build по  умолчанию ask внешних путей и  doom_loop:
+          # не отвеченный ask висит до  timeout-minutes (прогон 44997541687).
+          # deny превращает ask в  мгновенный DeniedError, агент продолжает.
+
           OPENCODE_CONFIG_CONTENT: '{ "permission": { "external_directory": "deny", "doom_loop": "deny" } }'
+          # Явно отдаём Actions-токен gh CLI: скоуп issues: write из  блока
+          # permissions выше — единственный write-ключ, доступный инструменту.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           model: opencode/qwen3.8-flash
           mentions: /opencode,/oc
