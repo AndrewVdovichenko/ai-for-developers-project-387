@@ -4,16 +4,31 @@ set -euo pipefail
 case "${1:-}" in
   create|edit|ready) ;;
   *)
-    echo 'Usage: opencode-pr {create|edit|ready} [gh pr options]' >&2
+    echo 'Usage: opencode-pr {create|edit|ready} [gh pr options without --repo/-R]' >&2
     exit 2
     ;;
 esac
 
+# App-токен инсталляции может иметь доступ к другим репозиториям,
+# поэтому цель операции всегда фиксируется текущим репозиторием.
+for arg in "$@"; do
+  case "$arg" in
+    --repo*|-R*)
+      echo 'opencode-pr: target repository is fixed to the current one; --repo/-R are not accepted' >&2
+      exit 2
+      ;;
+  esac
+done
+
 # OpenCode configures this header after exchanging OIDC for its App token.
-header=$(git config --local --get http.https://github.com/.extraheader)
-credentials=$(printf '%s' "${header#AUTHORIZATION: basic }" | base64 --decode)
+header=$(git config --local --get http.https://github.com/.extraheader || true)
+if [[ -z "$header" ]]; then
+  echo 'opencode-pr: OpenCode App credential unavailable — no http.https://github.com/.extraheader in git config' >&2
+  exit 1
+fi
+credentials=$(printf '%s' "${header#AUTHORIZATION: basic }" | base64 --decode || true)
 if [[ "$credentials" != x-access-token:?* ]]; then
-  echo 'OpenCode App credential unavailable' >&2
+  echo 'opencode-pr: OpenCode App credential unavailable' >&2
   exit 1
 fi
 GH_TOKEN="${credentials#x-access-token:}" exec gh pr "$@"
