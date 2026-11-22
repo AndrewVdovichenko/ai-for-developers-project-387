@@ -34,7 +34,8 @@ jobs:
       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
       (startsWith(github.event.comment.body, '/oc ') || startsWith(github.event.comment.body, '/opencode '))
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Тиры: тяжёлая команда (implement) получает job 120m, лёгкая — 35m.
+    timeout-minutes: ${{ contains(github.event.comment.body, 'implement') && 120 || 35 }}
     concurrency:
       group: opencode-comment-${{ github.event.pull_request.number || github.event.issue.number }}
       cancel-in-progress: false
@@ -50,6 +51,8 @@ jobs:
       id-token: write
     outputs:
       pr-number: ${{ github.event.pull_request.number || (github.event.issue.pull_request && github.event.issue.number) || '' }}
+      # Комментарий-цель отчёта: PR или issue — оба постятся через issues/<n>/comments.
+      target-number: ${{ github.event.pull_request.number || github.event.issue.number }}
       reason: ${{ steps.budget.outputs.reason || steps.agent.outputs.reason }}
       sha: ${{ steps.budget.outputs.sha }}
     env:
@@ -164,6 +167,7 @@ jobs:
       - name: Run OpenCode
         id: agent
         if: steps.budget.outputs.allowed == 'true'
+        timeout-minutes: ${{ contains(github.event.comment.body, 'implement') && 118 || 33 }}
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           OPENCODE_CONFIG_CONTENT: '{ "permission": { "external_directory": "deny", "doom_loop": "deny" }, "share": "disabled", "small_model": "${{ env.OPENCODE_MODEL }}" }'
@@ -173,13 +177,16 @@ jobs:
           MODEL: ${{ env.OPENCODE_MODEL }}
           MENTIONS: /opencode,/oc
           SHARE: 'false'
+          # Внутренний timeout чуть меньше timeout-minutes шага: 124/137
+          # классифицируются как timeout, шаг успевает записать причину.
+          MODEL_TIMEOUT: ${{ contains(github.event.comment.body, 'implement') && '115m' || '30m' }}
         run: |
           if [[ -z "$OPENCODE_API_KEY" ]]; then
             echo "reason=infra" >> "$GITHUB_OUTPUT"
             exit 1
           fi
           status=0
-          timeout --kill-after=15s 10m opencode github run || status=$?
+          timeout --kill-after=15s "$MODEL_TIMEOUT" opencode github run || status=$?
           case "$status" in
             0) exit 0 ;;
             124|137) echo "reason=timeout" >> "$GITHUB_OUTPUT" ;;
@@ -189,11 +196,12 @@ jobs:
 
   # Отчёт — отдельный job с собственным таймаутом: публикует причину даже
   # когда джоб модели упирается в общий timeout или завершился ошибкой.
+  # Работает в обоих контекстах: комментарий уходит в PR или в issue.
   report:
     needs: opencode
     if: >-
       always() && !cancelled() && needs.opencode.result != 'skipped' &&
-      needs.opencode.outputs.pr-number != '' &&
+      needs.opencode.outputs.target-number != '' &&
       needs.opencode.outputs.reason != 'ineligible' &&
       (needs.opencode.result == 'failure' || needs.opencode.outputs.reason == 'limit_exhausted')
     runs-on: ubuntu-latest
@@ -202,20 +210,29 @@ jobs:
       group: opencode-report-${{ github.event.pull_request.number || github.event.issue.number }}
       cancel-in-progress: false
     permissions:
+      # GitHub авторизует комментарий в PR через issues-эндпоинт скоупом
+      # pull-requests: write (пишет как по issue, проверяет как по PR);
+      # issues: write нужен для issue-контекста.
       # jactionlint ignore=excessive-permissions
       pull-requests: write
+      # jactionlint ignore=excessive-permissions
+      issues: write
     steps:
       - name: Report why human action is needed
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          TARGET_NUMBER: ${{ needs.opencode.outputs.target-number }}
           PR_NUMBER: ${{ needs.opencode.outputs.pr-number }}
           REASON: ${{ needs.opencode.outputs.reason }}
           PR_SHA: ${{ needs.opencode.outputs.sha }}
         run: |
           set -euo pipefail
           reason="${REASON:-infra}"
-          sha=$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER" --jq .head.sha) || sha=${PR_SHA:-unknown}
-          printf 'Нужен человек · `%s`\n\nSHA: `%s`\n\n[Логи прогона](%s/%s/actions/runs/%s/attempts/%s)\n' \
-            "$reason" "$sha" "$GITHUB_SERVER_URL" "$GH_REPO" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" |
-            gh pr comment "$PR_NUMBER" --body-file -
+          body="Нужен человек · \`${reason}\`"
+          if [[ -n "$PR_NUMBER" ]]; then
+            sha=$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER" --jq .head.sha) || sha=${PR_SHA:-unknown}
+            body+=$'\n\n'"SHA: \`$sha\`"
+          fi
+          body+=$'\n\n'"[Логи прогона]($GITHUB_SERVER_URL/$GH_REPO/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT)"
+          gh api -X POST "repos/$GH_REPO/issues/$TARGET_NUMBER/comments" -f body="$body" > /dev/null
