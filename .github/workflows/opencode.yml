@@ -55,8 +55,12 @@ jobs:
           # а  у  агента build по  умолчанию ask внешних путей и  doom_loop:
           # не отвеченный ask висит до  timeout-minutes (прогон 44997541687).
           # deny превращает ask в  мгновенный DeniedError, агент продолжает.
+          # Служебный вызов малой модели (заголовок сессии) входом model не задаётся:
+          # V1 берёт из  каталога свежий gpt-nano, а  доступ к  нему в  Console-воркспейсе
+          # закрыт (403 в  прогоне 45002304360). small_model фиксирует ту же flash —
+          # цена вопроса сотни токенов на  заголовок.
 
-          OPENCODE_CONFIG_CONTENT: '{ "permission": { "external_directory": "deny", "doom_loop": "deny" } }'
+          OPENCODE_CONFIG_CONTENT: '{ "permission": { "external_directory": "deny", "doom_loop": "deny" }, "small_model": "opencode/qwen3.8-flash" }'
           # Явно отдаём Actions-токен gh CLI: скоуп issues: write из  блока
           # permissions выше — единственный write-ключ, доступный инструменту.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

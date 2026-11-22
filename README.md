@@ -260,8 +260,12 @@ Workflow Хекслета сохранён без изменений и искл
   логин без `[bot]` — команды ботов игнорируются. Недоверенные авторы (внешние
   участники и форки) job не запускают, поэтому секреты к ним не попадают;
   встроенная проверка экшена дополнительно требует write/admin-доступ у автора команды.
-- **Модель:** `opencode/qwen3.8-flash` через OpenCode Console (zero-retention); ключ —
-  repository secret `OPENCODE_API_KEY`, передаётся в step через `env`.
+- **Модель:** `opencode/qwen3.8-flash` через  OpenCode Console (zero-retention); ключ —
+  repository secret `OPENCODE_API_KEY`, передаётся в  step через  `env`. Служебные вызовы
+  V1 шлёт в  «малую» модель: по  умолчанию это свежий `gpt-nano`, доступ к  которому в
+  Hexlet-workspace закрыт, поэтому `OPENCODE_CONFIG_CONTENT` фиксирует `small_model`
+  той же flash.
+
 - **Авторизация и права:** стандартный OIDC-режим: `contents: read`, `id-token: write`,
   checkout с `persist-credentials: false`. Агент работает installation-токеном GitHub App
   `opencode-agent` — его права шире блока `permissions:`, поэтому границы сценария задают
