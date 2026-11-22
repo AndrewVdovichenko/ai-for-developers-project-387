@@ -165,6 +165,7 @@ test('503 сохраняет ключ и параметры; интервалы
   let key = '',
     gets = 0;
   await page.clock.install();
+  await page.clock.pauseAt(Date.now() + 1000);
   await page.route('**/api/holds/*/confirm', async (route) => {
     key = route.request().headers()['idempotency-key']!;
     await route.abort();
@@ -177,13 +178,23 @@ test('503 сохраняет ключ и параметры; интервалы
       json: { code: 'SERVICE_UNAVAILABLE', message: 'technical' },
     });
   });
-  await page.getByRole('button', { name: 'Подтвердить запись', exact: true }).click();
+  await page.getByRole('button', { name: 'Подтвердить запись', exact: true }).press('Enter');
   await expect(page.getByRole('alert')).toContainText('Уточняем результат');
   for (const [index, delay] of [1000, 2000, 4000, 10000, 10000].entries()) {
     await page.clock.runFor(delay - 1);
     expect(gets).toBe(index);
     await page.clock.runFor(1);
-    await expect.poll(() => gets).toBe(index + 1);
+    // После ответа дождаться записи номера попытки и постановки следующего таймера.
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const tabId = window.name.slice('calendar-tab:'.length);
+          const record = localStorage.getItem(`guest-confirmation:${tabId}`);
+          return record && JSON.parse(record).context?.attempt;
+        }),
+      )
+      .toBe(index + 1);
+    expect(gets).toBe(index + 1);
     await expect(page.getByLabel('Имя', { exact: true })).toBeDisabled();
   }
   await page.unroute('**/api/operations/*');
