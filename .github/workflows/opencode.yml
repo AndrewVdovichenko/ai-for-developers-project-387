@@ -210,8 +210,11 @@ jobs:
       group: opencode-report-${{ github.event.pull_request.number || github.event.issue.number }}
       cancel-in-progress: false
     permissions:
-      # Чтение head SHA для PR-части отчёта.
-      pull-requests: read
+      # Комментарий в PR через issues-эндпоинт GitHub авторизует по
+      # pull-requests: write (пишет как по issue, проверяет как по PR);
+      # issues: write нужен для issue-контекста.
+      # jactionlint ignore=excessive-permissions
+      pull-requests: write
       # jactionlint ignore=excessive-permissions
       issues: write
     steps:
