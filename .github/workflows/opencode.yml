@@ -98,8 +98,11 @@ jobs:
           printf '47734e08968b30cc22a0bffb6d9feeed76ad4aa743213a12122040392d09a057  %s\n' "$RUNNER_TEMP/opencode.tar.gz" | sha256sum --check
           mkdir -p "$RUNNER_TEMP/opencode-bin"
           tar -xzf "$RUNNER_TEMP/opencode.tar.gz" -C "$RUNNER_TEMP/opencode-bin" opencode
-          install -Dm755 .github/scripts/opencode-pr "$RUNNER_TEMP/opencode-bin/opencode-pr"
           echo "$RUNNER_TEMP/opencode-bin" >> "$GITHUB_PATH"
+
+      - name: Prepare App-backed PR commands for issue implementation
+        if: env.PR_NUMBER == ''
+        run: install -Dm755 .github/scripts/opencode-pr "$RUNNER_TEMP/opencode-bin/opencode-pr"
 
       - name: Run OpenCode
         id: agent
