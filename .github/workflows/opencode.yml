@@ -112,10 +112,22 @@ jobs:
           ref: refs/heads/main
           persist-credentials: false
 
+      # Установка инлайн, а не через composite action: прогоны PR-контекста
+      # берут файл воркфлоу с head, а дерево — main, где action появится только
+      # после мержа этого PR. Унификацию с ./.github/actions/install-opencode
+      # можно сделать отдельным PR после мержа.
       - name: Install OpenCode
         id: setup
         if: steps.budget.outputs.allowed == 'true'
-        uses: ./.github/actions/install-opencode
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/opencode.tar.gz"
+          curl -fsSL --retry 2 -o "$archive" \
+            "https://github.com/anomalyco/opencode/releases/download/v1.19.6/opencode-linux-x64.tar.gz"
+          echo "47734e08968b30cc22a0bffb6d9feeed76ad4aa743213a12122040392d09a057  $archive" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/opencode-bin"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/opencode-bin" opencode
+          echo "$RUNNER_TEMP/opencode-bin" >> "$GITHUB_PATH"
 
       # Списание после успешной подготовки, но до вызова модели: попытки
       # считаем только те, что реально дошли до модели.

@@ -46,11 +46,6 @@ jobs:
       PR_SHA: ${{ github.event.pull_request.head.sha }}
       OPENCODE_MODEL: ${{ vars.OPENCODE_MODEL || 'opencode/qwen3.8-flash' }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          persist-credentials: false
-
       # Повторный прогон на том же head (reopened, ready_for_review, re-run)
       # не вызывает модель и не плодит комментариев.
       - name: Check if the head is already reviewed
@@ -68,6 +63,17 @@ jobs:
             echo "review=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # Локальный composite action резолвится из рабочего дерева, поэтому
+      # сначала checkout head (ветка владельца PR, не форк — гейт выше) ради
+      # install-opencode, затем дерево заменяется на base.sha: критерии,
+      # стандарты и скиллы модель читает из базы, а установка с head только
+      # скачивает CLI с пином SHA-256.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.dedupe.outputs.review == 'true'
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
       # App OpenCode обслуживает comment-сессии (opencode.yml). Независимое
       # ревью обязано работать на событии pull_request, читать код базового SHA,
       # не исполнять код PR и не иметь write-доступа к рабочему дереву — поэтому
@@ -76,6 +82,13 @@ jobs:
         id: setup
         if: steps.dedupe.outputs.review == 'true'
         uses: ./.github/actions/install-opencode
+
+      - name: Check out base revision for review
+        if: steps.dedupe.outputs.review == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
 
       - name: Run independent review
         id: agent
