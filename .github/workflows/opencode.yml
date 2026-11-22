@@ -42,6 +42,11 @@ jobs:
         uses: anomalyco/opencode/github@2c14fc5586fe0b88e5c04732d2e846769cc35671 # latest
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          # Обработчик github run не отвечает на  permission-запросы своей сессии, а  у
+          # агента build по  умолчанию ask внешних путей и  doom_loop: не отвеченный ask
+          # висит до  timeout-minutes (прогон 44997541687). deny превращает ask в
+          # мгновенный DeniedError, и  агент продолжает работать.
+          OPENCODE_CONFIG_CONTENT: '{ "permission": { "external_directory": "deny", "doom_loop": "deny" } }'
         with:
           model: opencode/qwen3.8-flash
           mentions: /opencode,/oc
