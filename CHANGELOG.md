@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.1](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/compare/v0.8.0...v0.8.1) (2026-11-22)
+
+
+### Исправления
+
+* готовить помощник OpenCode только для issue ([#21](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/issues/21)) ([61b0b1b](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/commit/61b0b1b782746534507d6b700af7374bd13521f8))
+* извлекать ссылки для авторевью через jq ([#21](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/issues/21)) ([4c50219](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/commit/4c50219732e1816bf219b007e7cc5f830e7b799a))
+* ужесточить помощник opencode-pr ([0945ceb](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/commit/0945cebe8586391d88fc3e530e0ddde3a83be428))
+
 ## [0.8.0](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/compare/v0.7.2...v0.8.0) (2026-11-22)
 
 
