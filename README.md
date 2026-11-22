@@ -15,7 +15,7 @@
 [CHANGELOG](https://github.com/AndrewVdovichenko/ai-for-developers-project-386/blob/main/CHANGELOG.md)
 и [ADR](https://github.com/AndrewVdovichenko/ai-for-developers-project-386/tree/main/docs/adr).
 Этот репозиторий — продолжение: разработка, трекер и релизы идут здесь,
-а версия отсчитывается от  `v0.6.1`.
+а версия отсчитывается от `v0.6.1`.
 
 ## Сценарий
 
@@ -260,34 +260,34 @@ Workflow Хекслета сохранён без изменений и искл
   логин без `[bot]` — команды ботов игнорируются. Недоверенные авторы (внешние
   участники и форки) job не запускают, поэтому секреты к ним не попадают;
   встроенная проверка экшена дополнительно требует write/admin-доступ у автора команды.
-- **Модель:** `opencode/qwen3.8-flash` через  OpenCode Console (zero-retention); ключ —
-  repository secret `OPENCODE_API_KEY`, передаётся в  step через  `env`. Служебные вызовы
-  V1 шлёт в  «малую» модель: по  умолчанию это свежий `gpt-nano`, доступ к  которому в
-  Hexlet-workspace закрыт, поэтому `OPENCODE_CONFIG_CONTENT` фиксирует `small_model`
-  той же flash.
+- **Модель:** `opencode/qwen3.8-flash` через OpenCode Console (zero-retention); ключ —
+  repository secret `OPENCODE_API_KEY`, передаётся в step через `env`. Служебные
+  вызовы V1 шлёт в «малую» модель: по умолчанию это свежий `gpt-nano`, доступ
+  к нему в Hexlet-workspace закрыт, поэтому `OPENCODE_CONFIG_CONTENT` фиксирует
+  `small_model` той же flash.
 
 - **Авторизация и права:** стандартный OIDC-режим: `contents: read`, `id-token: write`,
   checkout с `persist-credentials: false`. Агент работает installation-токеном GitHub App
   `opencode-agent` — его права шире блока `permissions:`, поэтому границы сценария задают
-  фильтр запуска и  команды, а  не только права.
-- **Разрешения tools в  CI:** обработчик `opencode github run` permission-запросы
-  своей сессии не отвечает, а  у  агента `build` по  умолчанию `ask` внешние пути
-  и  `doom_loop` — не отвеченный запрос висит до  тайм-аута (прогон 44997541687).
+  фильтр запуска и команды, а не только права.
+- **Разрешения tools в CI:** обработчик `opencode github run` permission-запросы
+  своей сессии не отвечает, а у агента `build` по умолчанию `ask` внешние пути
+  и `doom_loop` — не отвеченный запрос висит до тайм-аута (прогон 44997541687).
   Env `OPENCODE_CONFIG_CONTENT` ставит обоим `deny`: инструмент мгновенно
-  получает отказ, и  агент продолжает ответ.
+  получает отказ, и агент продолжает ответ.
 - **Публикация тикетов агентом:** обработчик V1 не передаёт installation-токен
-  приложения в  окружение bash-инструмента, поэтому `gh` в  прогоне работает
-  раннеровым токеном: в  `permissions` добавлено `issues: write`, на  шаг экшена
-  передан `GH_TOKEN`. Созданные агентом issue публикуются от  `github-actions[bot]`,
-  а  ответы в  комментарии по-прежнему пишет приложение `opencode-agent`
-  через  OIDC-обмен.
+  приложения в окружение bash-инструмента, поэтому `gh` в прогоне работает
+  раннеровым токеном: в `permissions` добавлено `issues: write`, на шаг экшена
+  передан `GH_TOKEN`. Созданные агентом issue публикуются от `github-actions[bot]`,
+  а ответы в комментарии по-прежнему пишет приложение `opencode-agent`
+  через OIDC-обмен.
 - **Гигиена прогона:** `timeout-minutes: 15`; одна очередь `concurrency`
   (`opencode-issue-agent`, `cancel-in-progress: false`) ограничивает параллельные запуски.
 - **Share:** публичных ссылок на сессии не создаётся — явный `share: false` и прекращённый
   в CI-сборке session sharing; доказательство работы — журнал прогона и комментарий бота.
 - **Скиллы и настройки:** после checkout раннер видит `.agents/skills/` (вендорный набор
-  `mattpocock/skills`) и  `docs/agents/`, поэтому отвечает по конфигурации трекера
-  и  правилам репозитория.
+  `mattpocock/skills`) и `docs/agents/`, поэтому отвечает по конфигурации трекера
+  и правилам репозитория.
 
 CI-экшен исполняет OpenCode V1-линейки — так устроена интеграция; локальный V2 это не
 затрагивает. `opencode.json` в репозитории намеренно нет: конфиг CI-агента целиком живёт
