@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.0](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/compare/v0.7.2...v0.8.0) (2026-11-22)
+
+
+### Новые возможности
+
+* добавить автотриаж новых обращений ([c851364](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/commit/c851364ff904c002dba3cfa922e99c88bbc8e23d))
+* добавить автотриаж новых обращений ([b294966](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/commit/b294966a963e26781a2d4bfcc1effac7a59047a7)), closes [#16](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/issues/16)
+
 ## [0.7.2](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/compare/v0.7.1...v0.7.2) (2026-11-22)
 
 
