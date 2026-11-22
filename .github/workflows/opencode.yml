@@ -9,8 +9,9 @@ on:
   pull_request_review_comment:
     types: [created]
 
-# Имя содержит только номер PR из события, без текста комментария.
-# История Actions служит счётчиком попыток, включая отменённые и Re-run.
+# Имя прогона — человекочитаемая метка истории Actions, логика лимита на нём
+# не основана: список попыток ведёт счётчик-комментарий <!-- oc-budget: N -->
+# на PR. Re-run и прогоны, упавшие до старта модели, бюджет не тратят.
 run-name: >-
   ${{ (github.event.comment.user.type == 'User' &&
        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
@@ -38,9 +39,8 @@ jobs:
       group: opencode-comment-${{ github.event.pull_request.number || github.event.issue.number }}
       cancel-in-progress: false
     permissions:
-      actions: read
       contents: read
-      # Публикация тикетов из issue и итогового отчёта в PR.
+      # Публикация тикетов из issue, списание бюджета и итоговый отчёт в PR.
       # jactionlint ignore=excessive-permissions
       issues: write
       # jactionlint ignore=excessive-permissions
@@ -48,17 +48,37 @@ jobs:
       # OIDC-обмен на токен OpenCode App для операций встроенного обработчика.
       # jactionlint ignore=excessive-permissions
       id-token: write
+    outputs:
+      pr-number: ${{ github.event.pull_request.number || (github.event.issue.pull_request && github.event.issue.number) || '' }}
+      reason: ${{ steps.budget.outputs.reason || steps.agent.outputs.reason }}
+      sha: ${{ steps.budget.outputs.sha }}
     env:
       PR_NUMBER: ${{ github.event.pull_request.number || (github.event.issue.pull_request && github.event.issue.number) || '' }}
       GH_REPO: ${{ github.repository }}
+      OC_PR_LIMIT: ${{ vars.OC_PR_LIMIT || '3' }}
+      OPENCODE_MODEL: ${{ vars.OPENCODE_MODEL || 'opencode/qwen3.8-flash' }}
     steps:
-      - name: Check PR branch and attempt budget
+      # Гейт позитивным флагом: при любом сбое шага allowed остаётся пустым,
+      # и модель не стартует (fail-closed). Сбой API истории прогонов больше
+      # не мешает — читается единственный счётчик-комментарий.
+      - name: Check PR eligibility and attempt budget
         id: budget
-        if: env.PR_NUMBER != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          case "$OC_PR_LIMIT" in
+            ''|*[!0-9]*)
+              echo "::error::vars.OC_PR_LIMIT must be a non-negative integer, got '$OC_PR_LIMIT'"
+              echo "reason=infra" >> "$GITHUB_OUTPUT"
+              exit 1
+              ;;
+          esac
+          if [[ "$PR_NUMBER" == '' ]]; then
+            printf 'allowed=true\nbudgeted=false\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "budgeted=true" >> "$GITHUB_OUTPUT"
           pr=$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER")
           if ! jq -e --arg repo "$GH_REPO" '
             .state == "open" and .base.ref == "main" and
@@ -68,23 +88,25 @@ jobs:
             exit 0
           fi
           echo "sha=$(jq -r .head.sha <<< "$pr")" >> "$GITHUB_OUTPUT"
-          runs=$(gh api --paginate --slurp "repos/$GH_REPO/actions/workflows/opencode.yml/runs?per_page=100")
-          jq -e --arg name "OpenCode PR #$PR_NUMBER" --argjson id "$GITHUB_RUN_ID" \
-            --argjson attempt "$GITHUB_RUN_ATTEMPT" '
-              [.[] | .workflow_runs[] | select(.display_title == $name)] |
-              any(.id == $id and .run_attempt == $attempt)
-            ' <<< "$runs" >/dev/null
-          attempts=$(jq --arg name "OpenCode PR #$PR_NUMBER" '
-            [.[] | .workflow_runs[] | select(.display_title == $name) | .run_attempt] | add
-          ' <<< "$runs")
-          echo "Attempts in history: $attempts / 3"
-          if (( attempts > 3 )); then
+          counter=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments?per_page=100" \
+            --jq '.[]
+                  | select(.user.login == "github-actions[bot]")
+                  | select(.body | startswith("<!-- oc-budget:"))
+                  | [(.id | tostring), (.body | capture("<!-- oc-budget: (?<used>[0-9]+) -->").used)]
+                  | @tsv' |
+            tail -n 1)
+          used=${counter##*$'\t'}
+          [[ "$used" =~ ^[0-9]+$ ]] || used=0
+          echo "Budget spent in PR #$PR_NUMBER: $used of $OC_PR_LIMIT model runs"
+          if (( used >= OC_PR_LIMIT )); then
             echo "reason=limit_exhausted" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          printf 'allowed=true\nused=%s\n' "$used" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repository
         id: checkout
-        if: steps.budget.outputs.reason == ''
+        if: steps.budget.outputs.allowed == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: refs/heads/main
@@ -92,21 +114,51 @@ jobs:
 
       - name: Install OpenCode
         id: setup
-        if: steps.budget.outputs.reason == ''
+        if: steps.budget.outputs.allowed == 'true'
         uses: ./.github/actions/install-opencode
 
+      # Списание после успешной подготовки, но до вызова модели: попытки
+      # считаем только те, что реально дошли до модели.
+      - name: Charge PR attempt budget
+        id: charge
+        if: steps.budget.outputs.allowed == 'true' && steps.budget.outputs.budgeted == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIOUS_USED: ${{ steps.budget.outputs.used }}
+        run: |
+          set -euo pipefail
+          used=$(( ${PREVIOUS_USED:-0} + 1 ))
+          body=$(printf '%s\n\n%s\n\n%s\n' \
+            "<!-- oc-budget: $used -->" \
+            "Бюджет OpenCode-запросов в этом PR: **$used** из **$OC_PR_LIMIT**." \
+            "Счётчик служебный: первую строку не менять, не удалять. Попытку списывает запуск модели; прогоны до неё бюджет не тратят.")
+          comment_id=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments?per_page=100" \
+            --jq '.[]
+                  | select(.user.login == "github-actions[bot]")
+                  | select(.body | startswith("<!-- oc-budget:"))
+                  | (.id | tostring)' |
+            tail -n 1)
+          if [[ -n "$comment_id" ]]; then
+            gh api -X PATCH "repos/$GH_REPO/issues/comments/$comment_id" -f body="$body" > /dev/null
+          else
+            gh api -X POST "repos/$GH_REPO/issues/$PR_NUMBER/comments" -f body="$body" > /dev/null
+          fi
+          echo "Budget: $used of $OC_PR_LIMIT attempts spent in PR #$PR_NUMBER"
+
       - name: Prepare App-backed PR commands for issue implementation
-        if: env.PR_NUMBER == ''
+        if: steps.budget.outputs.allowed == 'true' && env.PR_NUMBER == ''
         run: install -Dm755 .github/scripts/opencode-pr "$RUNNER_TEMP/opencode-bin/opencode-pr"
 
       - name: Run OpenCode
         id: agent
-        if: steps.budget.outputs.reason == ''
+        if: steps.budget.outputs.allowed == 'true'
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-          OPENCODE_CONFIG_CONTENT: '{ "permission": { "external_directory": "deny", "doom_loop": "deny" }, "small_model": "opencode/qwen3.8-flash" }'
+          OPENCODE_CONFIG_CONTENT: '{ "permission": { "external_directory": "deny", "doom_loop": "deny" }, "share": "disabled", "small_model": "${{ env.OPENCODE_MODEL }}" }'
+          # В PR-контексте gh остаётся без токена: /oc в PR правит только PR
+          # через App-токен, тикеты заводятся командами в обсуждении issue.
           GH_TOKEN: ${{ env.PR_NUMBER == '' && github.token || '' }}
-          MODEL: opencode/qwen3.8-flash
+          MODEL: ${{ env.OPENCODE_MODEL }}
           MENTIONS: /opencode,/oc
           SHARE: 'false'
         run: |
@@ -123,14 +175,35 @@ jobs:
           esac
           exit "$status"
 
+  # Отчёт — отдельный job с собственным таймаутом: публикует причину даже
+  # когда джоб модели упирается в общий timeout или завершился ошибкой.
+  report:
+    needs: opencode
+    if: >-
+      always() && !cancelled() && needs.opencode.result != 'skipped' &&
+      needs.opencode.outputs.pr-number != '' &&
+      needs.opencode.outputs.reason != 'ineligible' &&
+      (needs.opencode.result == 'failure' || needs.opencode.outputs.reason == 'limit_exhausted')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: opencode-report-${{ github.event.pull_request.number || github.event.issue.number }}
+      cancel-in-progress: false
+    permissions:
+      # jactionlint ignore=excessive-permissions
+      pull-requests: write
+    steps:
       - name: Report why human action is needed
-        if: always() && env.PR_NUMBER != '' && steps.budget.outputs.reason != 'ineligible' && (failure() || steps.budget.outputs.reason == 'limit_exhausted')
         env:
           GH_TOKEN: ${{ github.token }}
-          REASON: ${{ steps.budget.outputs.reason || steps.agent.outputs.reason || 'infra' }}
-          PR_SHA: ${{ steps.budget.outputs.sha }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ needs.opencode.outputs.pr-number }}
+          REASON: ${{ needs.opencode.outputs.reason }}
+          PR_SHA: ${{ needs.opencode.outputs.sha }}
         run: |
+          set -euo pipefail
+          reason="${REASON:-infra}"
           sha=$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER" --jq .head.sha) || sha=${PR_SHA:-unknown}
           printf 'Нужен человек · `%s`\n\nSHA: `%s`\n\n[Логи прогона](%s/%s/actions/runs/%s/attempts/%s)\n' \
-            "$REASON" "$sha" "$GITHUB_SERVER_URL" "$GH_REPO" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" |
+            "$reason" "$sha" "$GITHUB_SERVER_URL" "$GH_REPO" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" |
             gh pr comment "$PR_NUMBER" --body-file -
