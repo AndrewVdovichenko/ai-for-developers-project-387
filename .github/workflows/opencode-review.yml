@@ -78,9 +78,9 @@ jobs:
           persist-credentials: false
 
       # App OpenCode обслуживает comment-сессии (opencode.yml). Независимое
-      # ревью обязано работать на событии pull_request, читать критерии и
-      # стандарты базового SHA и не запускать код приложения из PR — поэтому
-      # отдельный CLI в режиме чтения с allowlist read-only gh-команд.
+      # ревью обязано работать на событии pull_request, читать базовый SHA:
+      # критерии и стандарты из базы, без запуска кода приложения из PR —
+      # поэтому отдельный CLI в режиме чтения с allowlist read-only gh-команд.
       - name: Install OpenCode
         id: setup
         if: steps.dedupe.outputs.review == 'true'

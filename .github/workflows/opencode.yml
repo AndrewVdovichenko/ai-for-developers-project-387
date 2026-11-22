@@ -210,7 +210,7 @@ jobs:
       group: opencode-report-${{ github.event.pull_request.number || github.event.issue.number }}
       cancel-in-progress: false
     permissions:
-      # Комментарий в PR через issues-эндпоинт GitHub авторизует по
+      # GitHub авторизует комментарий в PR через issues-эндпоинт скоупом
       # pull-requests: write (пишет как по issue, проверяет как по PR);
       # issues: write нужен для issue-контекста.
       # jactionlint ignore=excessive-permissions
