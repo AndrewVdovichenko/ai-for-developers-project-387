@@ -198,6 +198,8 @@ class ConfirmationRecovery {
     this.update({ sending: true, error: undefined, message: '' });
     try {
       const fingerprint = await confirmationFingerprint(this.context?.holdId ?? holdId, body);
+      // A reset during the digest abandoned this conversation: its context must not outlive it.
+      if (conversation !== this.conversation) return;
       if (this.context && this.context.fingerprint !== fingerprint) {
         this.update({
           message:
