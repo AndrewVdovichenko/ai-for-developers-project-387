@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.2](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/compare/v0.8.1...v0.8.2) (2026-11-22)
+
+
+### Исправления
+
+* выдать report-джобу pull-requests: write для PR-комментария ([3cfb660](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/commit/3cfb6602ae868b4d225ab85c80a2636ab9870f73))
+* тир-таймауты /oc и отчёт в issue-контексте ([b746b0d](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/commit/b746b0d34a7e00bef82b20372be1c682992da440))
+* тир-таймауты /oc и отчёт в issue-контексте ([527856c](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/commit/527856c01ba05360120e463458315943bb97a48c))
+
 ## [0.8.1](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/compare/v0.8.0...v0.8.1) (2026-11-22)
 
 
