@@ -4,7 +4,7 @@ import { getBooking } from '@calendar/api-client';
 import type { Booking } from '@calendar/api-client';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { confirmationStorage } from '../booking-draft';
+import { confirmationRecovery } from '../confirmation-recovery';
 export function BookingResultPage() {
   const { id = '' } = useParams();
   const [booking, setBooking] = useState<Booking>();
@@ -51,7 +51,7 @@ export function BookingResultPage() {
             <Button
               component={Link}
               to="/event-types"
-              onClick={() => confirmationStorage().clear()}
+              onClick={() => confirmationRecovery().reset()}
             >
               Записаться ещё
             </Button>
