@@ -93,12 +93,7 @@ jobs:
       - name: Install OpenCode
         id: setup
         if: steps.budget.outputs.reason == ''
-        run: |
-          curl -fsSL "https://github.com/anomalyco/opencode/releases/download/v1.19.6/opencode-linux-x64.tar.gz" -o "$RUNNER_TEMP/opencode.tar.gz"
-          printf '47734e08968b30cc22a0bffb6d9feeed76ad4aa743213a12122040392d09a057  %s\n' "$RUNNER_TEMP/opencode.tar.gz" | sha256sum --check
-          mkdir -p "$RUNNER_TEMP/opencode-bin"
-          tar -xzf "$RUNNER_TEMP/opencode.tar.gz" -C "$RUNNER_TEMP/opencode-bin" opencode
-          echo "$RUNNER_TEMP/opencode-bin" >> "$GITHUB_PATH"
+        uses: ./.github/actions/install-opencode
 
       - name: Prepare App-backed PR commands for issue implementation
         if: env.PR_NUMBER == ''
