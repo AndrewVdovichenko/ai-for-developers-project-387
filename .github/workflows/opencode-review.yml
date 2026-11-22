@@ -17,13 +17,15 @@ concurrency:
 
 jobs:
   review:
+    # Релизные PR release-please не прогоняем: их дифф — автогенерируемые
+    # версии и changelog по уже проверенным коммитам, ревью-гейт на мерж
+    # не требуется (обязателен только check).
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.base.ref == 'main' &&
       ((github.event.pull_request.user.type == 'User' &&
         contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)) ||
-       contains(fromJSON('["opencode-agent[bot]","releasepleasehexletaifordevelopers[bot]"]'),
-         github.event.pull_request.user.login))
+       github.event.pull_request.user.login == 'opencode-agent[bot]')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
