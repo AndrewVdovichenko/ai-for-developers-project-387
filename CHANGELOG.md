@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/compare/v0.7.1...v0.7.2) (2026-11-22)
+
+
+### Исправления
+
+* права и модели CI-агента OpenCode ([#10](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/issues/10)) ([148d0c1](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/commit/148d0c11f1335cec7f1e4c8b11cf7fa2ecb46c51))
+
 ## [0.7.1](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/compare/v0.7.0...v0.7.1) (2026-11-22)
 
 
