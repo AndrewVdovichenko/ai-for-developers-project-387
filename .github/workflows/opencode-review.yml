@@ -25,7 +25,7 @@ jobs:
        contains(fromJSON('["opencode-agent[bot]","releasepleasehexletaifordevelopers[bot]"]'),
          github.event.pull_request.user.login))
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
       contents: read
       issues: read
@@ -126,7 +126,7 @@ jobs:
             '.skills.paths = [$path]' <<< "$OPENCODE_CONFIG_CONTENT")
           export OPENCODE_CONFIG_CONTENT
           status=0
-          timeout --kill-after=15s 10m opencode run --model "$OPENCODE_MODEL" --format json \
+          timeout --kill-after=15s 13m opencode run --model "$OPENCODE_MODEL" --format json \
             "Вызови инструмент skill со скиллом code-review и проверь отдельно Standards и Spec.
           Базовая точка $PR_BASE_SHA, проверяемый SHA $PR_SHA, PR #$PR_NUMBER в репозитории $GH_REPO.
           Собери контекст сам read-only командами gh: gh pr view (title, body, comments, commits, files, reviews, statusCheckRollup), gh pr diff, gh pr checks и gh run list/view для текущего head, gh issue view по тикетам, на которые есть ссылки в теле PR, комментариях и сообщениях коммитов.
