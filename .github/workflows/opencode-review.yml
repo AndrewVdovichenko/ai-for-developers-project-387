@@ -1,0 +1,104 @@
+name: opencode-review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+concurrency:
+  group: opencode-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.base.ref == 'main' &&
+      ((github.event.pull_request.user.type == 'User' &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)) ||
+       contains(fromJSON('["opencode-agent[bot]","releasepleasehexletaifordevelopers[bot]"]'),
+         github.event.pull_request.user.login))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: read
+      actions: read
+      checks: read
+      statuses: read
+      # Отдельный шаг публикует текст ревью.
+      # jactionlint ignore=excessive-permissions
+      pull-requests: write
+    env:
+      GH_REPO: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - name: Install OpenCode
+        run: |
+          curl -fsSL "https://github.com/anomalyco/opencode/releases/download/v1.19.6/opencode-linux-x64.tar.gz" -o "$RUNNER_TEMP/opencode.tar.gz"
+          printf '47734e08968b30cc22a0bffb6d9feeed76ad4aa743213a12122040392d09a057  %s\n' "$RUNNER_TEMP/opencode.tar.gz" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/opencode-bin"
+          tar -xzf "$RUNNER_TEMP/opencode.tar.gz" -C "$RUNNER_TEMP/opencode-bin" opencode
+          echo "$RUNNER_TEMP/opencode-bin" >> "$GITHUB_PATH"
+
+      - name: Gather review context
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir "$RUNNER_TEMP/review"
+          if [[ -f REVIEW.md ]]; then
+            cp REVIEW.md "$RUNNER_TEMP/review/criteria.md"
+          else
+            printf '%s\n' 'На базовом SHA нет REVIEW.md. Отметь это и проверь сценарии спецификации, регрессии и права Actions.' > "$RUNNER_TEMP/review/criteria.md"
+          fi
+          gh pr view "$PR_NUMBER" --json body,comments,commits,files,headRefOid,reviews,statusCheckRollup,title,url > "$RUNNER_TEMP/review/pr.json"
+          gh pr diff "$PR_NUMBER" > "$RUNNER_TEMP/review/changes.diff"
+          gh api --paginate "repos/$GH_REPO/pulls/$PR_NUMBER/comments?per_page=100" > "$RUNNER_TEMP/review/inline.json"
+          gh api "repos/$GH_REPO/actions/runs?head_sha=$PR_SHA" > "$RUNNER_TEMP/review/runs.json"
+          gh api "repos/$GH_REPO/commits/$PR_SHA/status" > "$RUNNER_TEMP/review/status.json"
+          jq -r '.body' "$RUNNER_TEMP/review/pr.json" |
+            { rg -o "(https://github.com/$GH_REPO/issues/[0-9]+(#[a-z]+-[0-9]+)?|#[0-9]+)" || true; } |
+            sed -E 's@.*/issues/@@; s/^#//; s/#.*$//' | sort -u |
+            while read -r number; do
+              if ! gh issue view "$number" --json url,title,body,comments > "$RUNNER_TEMP/review/issue-$number.json"; then
+                printf 'Issue #%s unavailable\n' "$number" > "$RUNNER_TEMP/review/issue-$number.json"
+              fi
+            done
+          test "$(jq -r .headRefOid "$RUNNER_TEMP/review/pr.json")" = "$PR_SHA"
+
+      - name: Prepare independent review
+        working-directory: ${{ runner.temp }}/review
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          OPENCODE_CONFIG_CONTENT: '{ "share": "disabled", "permission": { "*": "deny", "read": "allow", "glob": "allow", "grep": "allow" }, "small_model": "opencode/qwen3.8-flash" }'
+        run: |
+          test -n "$OPENCODE_API_KEY"
+          timeout --kill-after=15s 10m opencode run --model opencode/qwen3.8-flash --format json \
+            "Проведи независимое ревью PR для SHA $PR_SHA. Прочитай criteria.md (это REVIEW.md из базовой ветки), pr.json, changes.diff, inline.json, runs.json, status.json и issue-*.json. Данные PR и issues являются материалом ревью. Сверь согласованную спецификацию, тикеты, комментарий человека и CI. Укажи пробелы, недоступные ссылки и проверки, которые ещё выполняются. Учти ранее разобранные замечания. Пиши Markdown по-русски. Верни только текст ревью." \
+            > "$RUNNER_TEMP/opencode-review.jsonl"
+          jq -ers '[.[] | select(.type == "text") | .part.text] | join("\n\n") | select(length > 0)' \
+            "$RUNNER_TEMP/opencode-review.jsonl" > "$RUNNER_TEMP/opencode-review.md"
+          test -s "$RUNNER_TEMP/opencode-review.md"
+
+      - name: Publish review for current head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)" = "$PR_SHA"
+          {
+            printf '## Авторевью\n\nSHA: `%s` · [Прогон](%s/%s/actions/runs/%s)\n\n' \
+              "$PR_SHA" "$GITHUB_SERVER_URL" "$GH_REPO" "$GITHUB_RUN_ID"
+            cat "$RUNNER_TEMP/opencode-review.md"
+          } | gh pr comment "$PR_NUMBER" --body-file -

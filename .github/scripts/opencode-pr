@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+case "${1:-}" in
+  create|edit|ready) ;;
+  *)
+    echo 'Usage: opencode-pr {create|edit|ready} [gh pr options]' >&2
+    exit 2
+    ;;
+esac
+
+# OpenCode configures this header after exchanging OIDC for its App token.
+header=$(git config --local --get http.https://github.com/.extraheader)
+credentials=$(printf '%s' "${header#AUTHORIZATION: basic }" | base64 --decode)
+if [[ "$credentials" != x-access-token:?* ]]; then
+  echo 'OpenCode App credential unavailable' >&2
+  exit 1
+fi
+GH_TOKEN="${credentials#x-access-token:}" exec gh pr "$@"

@@ -31,10 +31,39 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           version: 2026.11.8
       - run: yarn install --immutable
       - run: yarn playwright install --with-deps chromium
-      - run: mise run check
+      - name: Verify exact revision
+        id: revision
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          echo "$sha"
+          test "$sha" = "$EXPECTED_SHA"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - name: Run checks and browser tests
+        id: checks
+        env:
+          PLAYWRIGHT_TRACE: ${{ github.event_name == 'pull_request' && '1' || '0' }}
+        run: mise run check
+      - name: Record browser verification
+        if: always() && github.event_name == 'pull_request' && steps.revision.outcome == 'success'
+        env:
+          VERIFIED_SHA: ${{ steps.revision.outputs.sha }}
+          CHECK_RESULT: ${{ steps.checks.outcome }}
+        run: |
+          mkdir -p test-results
+          printf 'HEAD=%s\ncheck=%s\ncommand=mise run check\n' "$VERIFIED_SHA" "$CHECK_RESULT" > test-results/verification.txt
+      - name: Upload browser evidence
+        if: always() && github.event_name == 'pull_request' && steps.revision.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: browser-${{ steps.revision.outputs.sha }}-attempt-${{ github.run_attempt }}
+          path: test-results/
+          if-no-files-found: error
