@@ -25,9 +25,10 @@ concurrency:
 
 jobs:
   audit:
-    # Расписание и ручной запуск имеют смысл только из основной ветки:
-    # файл воркфлоу для schedule должен лежать в main.
-    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    # Guard основной ветки: schedule по своей природе идёт с default
+    # branch, поэтому поле github.event.repository, не гарантированное
+    # в schedule payload, читается только для проверки workflow_dispatch.
+    if: github.event_name == 'schedule' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
     # Худшая сумма явных шаговых таймаутов (2+1+3+11+15+2+2+3+15+2 = 56)
     # меньше job-таймаута 60: иначе Actions прервёт прогон посреди публикации,
@@ -274,8 +275,8 @@ jobs:
           esac
 
           # Контракт результата детерминированно: события не содержат error,
-          # финальный текст — ровно одна RESULT-строка, CREATED n в пределах
-          # капа. Несоблюдение — красный прогон без побочных записей.
+          # финальный текст — ровно одна RESULT-строка, CREATED n ≤ 3.
+          # Несоблюдение — красный прогон без побочных записей.
           answer="$(jq -sr '
             if any(.[]; .type == "error") then error("OpenCode reported an error")
             else map(select(.type == "text") | .part.text) | last // empty end
