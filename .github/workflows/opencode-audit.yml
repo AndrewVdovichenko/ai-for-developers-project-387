@@ -1,0 +1,302 @@
+name: opencode-audit
+
+on:
+  # Не чаще раза в сутки: ежедневно в 06:17 Europe/Moscow. GitHub может
+  # задержать или пропустить запуск при нагрузке — это не нарушение
+  # частоты и не ошибка аудита; гарантией приёмки служит ручной прогон.
+  schedule:
+    - cron: '17 6 * * *'
+      timezone: Europe/Moscow
+  workflow_dispatch:
+    inputs:
+      training_demo:
+        description: 'Учебный прогон: синтетический отчёт вместо реального замера, issue с лейблом «учебный»'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Параллельные аудиты запрещены: второй прогон на живом сервисе искажает
+# замеры первого. Отменять работающий прогон нельзя.
+concurrency:
+  group: opencode-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    # Расписание и ручной запуск имеют смысл только из основной ветки:
+    # файл воркфлоу для schedule должен лежать в main.
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      # Гейт находок и дедуп считаются детерминированными шагами; агент
+      # локальным model-запуском правит только GitHub-side: создаёт/обновляет
+      # issue через ghActions token. pull-requests прав не требуется.
+      # jactionlint ignore=excessive-permissions
+      issues: write
+    env:
+      APP_URL: ${{ vars.APP_URL }}
+      JOURNAL_ISSUE: ${{ vars.AUDIT_JOURNAL_ISSUE }}
+      MODEL: ${{ vars.OPENCODE_MODEL || 'opencode/qwen3.8-flash' }}
+      GH_REPO: ${{ github.repository }}
+      TRAINING_DEMO: ${{ inputs.training_demo }}
+      ARTIFACT_NAME: lighthouse-report-${{ github.run_id }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Окно прогона фиксируется на старте: cap-проверка считает issue,
+      # созданные не раньше этой метки.
+      - name: Stamp run start time
+        run: echo "RUN_STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
+      # Установка через локальный composite action (тот же, что у
+      # opencode-review/triage): версия и SHA-256 зафиксированы в action.yml.
+      - name: Install OpenCode
+        timeout-minutes: 3
+        uses: ./.github/actions/install-opencode
+
+      # Wake-шаг не входит в требования задания, но без него простой
+      # бесплатный тариф даёт ложные находки (замер заглушки 503) или
+      # падение прогона. Инфраструктурный сбой ≠ находка: red run без
+      # публикации.
+      - name: Wake the app
+        if: inputs.training_demo != true
+        timeout-minutes: 12
+        run: |
+          set -euo pipefail
+          if [ -z "${APP_URL:-}" ]; then
+            echo "::error::Repository variable APP_URL is not set"
+            exit 1
+          fi
+          deadline=$((SECONDS + 600))
+          until curl -fsS --max-time 15 "$APP_URL/health" >/dev/null; do
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "::error::$APP_URL did not answer /health within 600s"
+              exit 1
+            fi
+            sleep 5
+          done
+
+      - name: Collect Lighthouse report
+        id: collect
+        timeout-minutes: 20
+        env:
+          AUDIT_DIR: ${{ runner.temp }}/audit
+        run: |
+          set -euo pipefail
+          mkdir -p "$AUDIT_DIR"
+          if [ "${TRAINING_DEMO:-}" = "true" ]; then
+            node scripts/lighthouse-audit.mjs demo-report "${APP_URL:-https://example.invalid/}" "$AUDIT_DIR/report.json"
+          else
+            CHROME_PATH="$(command -v google-chrome)" \
+              npx --yes lighthouse@12.8.2 "${APP_URL%/}/" \
+              --only-categories=performance \
+              --chrome-flags=--headless \
+              --quiet \
+              --output=json \
+              --output-path="$AUDIT_DIR/report.json"
+          fi
+          [ -s "$AUDIT_DIR/report.json" ] || { echo "::error::report.json is empty"; exit 1; }
+
+      - name: Extract findings
+        env:
+          AUDIT_DIR: ${{ runner.temp }}/audit
+        run: |
+          set -euo pipefail
+          node scripts/lighthouse-audit.mjs findings "$AUDIT_DIR/report.json" "$AUDIT_DIR/findings.md"
+          if [ -s "$AUDIT_DIR/findings.md" ]; then
+            {
+              echo "## Режим: $([ "${TRAINING_DEMO:-}" = "true" ] && echo учебный || echo live)"
+              cat "$AUDIT_DIR/findings.md"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Находок нет: бюджеты пройдены" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # Полный список вместо gh --label: флаг падает на search-индекс,
+      # который отстаёт. Отпечатки выбираются из тел issue детерминированно.
+      - name: List existing audit issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUDIT_DIR: ${{ runner.temp }}/audit
+        run: |
+          set -euo pipefail
+          gh issue list --state all --limit 1000 --json number,state,updatedAt,body \
+            | jq '
+              [ .[]
+                | select(.body | test("<!-- audit: [^ <>]+:[^ <>]+ -->"))
+                | { number,
+                    state,
+                    updatedAt,
+                    fingerprint: (.body | capture("<!-- audit: (?<f>[^ <>]+:[^ <>]+) -->").f) } ]' \
+            > "$AUDIT_DIR/existing-issues.json"
+
+      - name: Upload Lighthouse report
+        if: ${{ !cancelled() && steps.collect.outcome == 'success' }}
+        env:
+          AUDIT_DIR: ${{ runner.temp }}/audit
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: |
+            ${{ env.AUDIT_DIR }}/report.json
+            ${{ env.AUDIT_DIR }}/findings.md
+            ${{ env.AUDIT_DIR }}/existing-issues.json
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Publish findings with OpenCode
+        id: agent
+        timeout-minutes: 15
+        env:
+          AUDIT_DIR: ${{ runner.temp }}/audit
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          # Разрешения документа прав: edit запрещён, bash — ровно gh-глаголы
+          # публикации. Битый документ OpenCode молча игнорирует, поэтому
+          # проверка jq обязательна.
+          OPENCODE_CONFIG_CONTENT: >-
+            {"permission":{"edit":"deny","external_directory":"deny","doom_loop":"deny",
+            "bash":{"*":"deny","gh issue list *":"allow","gh issue view *":"allow",
+            "gh issue create *":"allow","gh issue edit *":"allow","gh issue reopen *":"allow",
+            "gh issue comment *":"allow"}},"share":"disabled","small_model":"${{ vars.OPENCODE_MODEL || 'opencode/qwen3.8-flash' }}"}
+          GH_TOKEN: ${{ github.token }}
+          # Внутренний timeout меньше timeout-minutes шага: 124/137
+          # успевают классифицироваться как timeout.
+          MODEL_TIMEOUT: 12m
+        run: |
+          set -euo pipefail
+          [ -n "${OPENCODE_API_KEY:-}" ] || { echo "::error::OPENCODE_API_KEY secret is not set"; exit 1; }
+          command -v opencode >/dev/null 2>&1 || { echo "::error::opencode is not installed"; exit 1; }
+          jq -e '.permission' >/dev/null <<<"$OPENCODE_CONFIG_CONTENT" || { echo "::error::invalid permission document"; exit 1; }
+          [ -n "${JOURNAL_ISSUE:-}" ] || { echo "::error::AUDIT_JOURNAL_ISSUE variable is not set"; exit 1; }
+
+          mode="live"
+          if [ "${TRAINING_DEMO:-}" = "true" ]; then mode="demo"; fi
+          run_date_msk="$(TZ=Europe/Moscow date '+%Y-%m-%d %H:%M')"
+          findings_block="$(cat "$AUDIT_DIR/findings.md" 2>/dev/null || true)"
+          existing_block="$(cat "$AUDIT_DIR/existing-issues.json" 2>/dev/null || true)"
+
+          prompt="$(cat <<'PROMPT'
+          Ты публикуешь результаты периодического Lighthouse-аудита в репозитории {{REPO}}.
+
+          Дата прогона: {{DATE}} (Europe/Moscow). Режим: {{MODE}}.
+          Прогон: {{RUN_URL}}
+          Артефакт с исходным отчётом: {{ARTIFACT}} (скачать: gh run download {{RUN_ID}} --name {{ARTIFACT}})
+          Журнальный issue (запись «находок нет»): #{{JOURNAL}}
+
+          Находки — проваленные бюджеты, вычисленные детерминированным гейтом (пусто — находок нет):
+          {{FINDINGS}}
+
+          Открытые и закрытые issue-находки этого репозитория (сопоставление по отпечатку):
+          {{EXISTING}}
+
+          Правила:
+          1. Находка — строка из блока «Находки». Не добавляй метрик и страниц, которых там нет; плохие рекомендации Lighthouse вне гейта — не находки.
+          2. Идентификатор находки — отпечаток <!-- audit: <страница>:<метрика> -->. Сопоставляй issue строго по нему, не по заголовку.
+          3. Отпечатка нет в списке: gh issue create --label audit --title "[audit] <страница>: <метрика>" --body "...". Тело: что измерено (страница, метрика, значение, бюджет), ссылка на прогон {{RUN_URL}} и артефакт {{ARTIFACT}}, что с этим можно сделать (1–3 практических шага из данных отчёта), последней строкой — тот же отпечаток <!-- audit: ... -->.
+          4. Открытый issue с тем же отпечатком: gh issue edit НОМЕР --body "..." — перезаписать тело целиком новыми значениями. Комментариев не добавлять.
+          5. Закрытый issue с тем же отпечатком: gh issue reopen НОМЕР, затем gh issue edit НОМЕР --body "..." — обновить тело.
+          6. Режим demo: каждый создаваемый issue дополнить лейблом учебный (--label audit --label учебный) и начать тело с «⚠️ Учебная демонстрация механизма публикации находок; это не подтверждённый дефект приложения.» В теле не утверждать, что дефект подтверждён замером живого сервиса.
+          7. Находок нет и режим live: новых issue не создавать; проверять только правило 9. Находок нет и режим demo — невозможная комбинация, это ошибка: ничего не создавай и заверши INFRA.
+          8. Правило 3 создаёт не больше трёх issue за прогон.
+          9. Находок нет (live): журнальная запись в issue #{{JOURNAL}} через gh issue comment {{JOURNAL}} --body "...": дата {{DATE}}, режим live, ссылка на прогон {{RUN_URL}}, артефакт {{ARTIFACT}}, строка «бюджеты пройдены». Сначала gh issue view {{JOURNAL}} --json comments — если запись с той же датой {{DATE}} уже есть, новую не добавляй.
+          10. Закрытые/открытые issue из списка, чьих отпечатков нет среди находок, — не трогать: перезапись/закрытие чужих находок запрещено.
+          11. Не удалять issue, не менять лейблы существующих, не трогать issue без отпечатка (кроме журнальной записи по правилу 9), не править файлы, не коммитить, не создавать PR, не трогать pull requests.
+          12. Входные данные противоречивы или сломаны — ничего не делай.
+
+          Закончи ответ ровно одной строкой (без текста вокруг):
+          RESULT: CREATED n | NO_NEW | INFRA
+          PROMPT
+          )"
+          prompt="${prompt//'{{REPO}}'/$GH_REPO}"
+          prompt="${prompt//'{{DATE}}'/$run_date_msk}"
+          prompt="${prompt//'{{MODE}}'/$mode}"
+          prompt="${prompt//'{{RUN_URL}}'/$RUN_URL}"
+          prompt="${prompt//'{{RUN_ID}}'/$GITHUB_RUN_ID}"
+          prompt="${prompt//'{{ARTIFACT}}'/$ARTIFACT_NAME}"
+          prompt="${prompt//'{{JOURNAL}}'/$JOURNAL_ISSUE}"
+          # Данные — содержимое файлов целиком; пустые блоки — явные маркеры,
+          # чтобы агент не читал «пустоту» как повреждённый вход.
+          prompt="${prompt//'{{FINDINGS}}'/${findings_block:-нет находок}}"
+          prompt="${prompt//'{{EXISTING}}'/${existing_block:-[]}}"
+
+          # Локальный запуск модели по паттерну opencode-triage: prompt
+          # передаётся аргументом. У события расписания нет комментария,
+          # из которого opencode github run взял бы инструкцию, поэтому
+          # здесь он не используется; gh пишет через Actions token
+          # (issues: write).
+          events="$RUNNER_TEMP/opencode-events.jsonl"
+          status=0
+          timeout --kill-after=15s "$MODEL_TIMEOUT" opencode run --model "$MODEL" --format json "$prompt" </dev/null >"$events" || status=$?
+          case "$status" in
+            0) ;;
+            124 | 137)
+              echo "reason=timeout" >>"$GITHUB_OUTPUT"
+              echo "::error::opencode run timed out"
+              exit 1
+              ;;
+            *)
+              echo "reason=agent_failed" >>"$GITHUB_OUTPUT"
+              echo "::error::opencode run exited with status $status"
+              exit 1
+              ;;
+          esac
+
+          # Контракт результата детерминированно: события не содержат error,
+          # финальный текст — ровно одна RESULT-строка, CREATED n в пределах
+          # капа. Несоблюдение — красный прогон без побочных записей.
+          answer="$(jq -sr '
+            if any(.[]; .type == "error") then error("OpenCode reported an error")
+            else map(select(.type == "text") | .part.text) | last // empty end
+          ' "$events")" || {
+            echo "reason=agent_error" >>"$GITHUB_OUTPUT"
+            echo "::error::OpenCode reported an error"
+            exit 1
+          }
+          result_line="$(printf '%s\n' "$answer" | grep -oE '^RESULT: (CREATED [0-9]+|NO_NEW|INFRA)$' | tail -1 || true)"
+          if [ -z "$result_line" ]; then
+            echo "reason=bad_contract" >>"$GITHUB_OUTPUT"
+            echo "::error::agent answer lacks the RESULT contract line"
+            exit 1
+          fi
+          echo "result_line=$result_line" >>"$GITHUB_OUTPUT"
+          case "$result_line" in
+            'RESULT: INFRA')
+              echo "reason=infra" >>"$GITHUB_OUTPUT"
+              echo "::error::the agent reported unusable inputs"
+              exit 1
+              ;;
+            'RESULT: NO_NEW') ;;
+            *)
+              created="${result_line#RESULT: CREATED }"
+              if [ "${created:-0}" -gt 3 ]; then
+                echo "reason=cap_exceeded" >>"$GITHUB_OUTPUT"
+                echo "::error::agent claims $created new issues (cap is 3)"
+                exit 1
+              fi
+              ;;
+          esac
+
+      - name: Verify publishing cap
+        # Сигнальная проверка капа ≤3: больше трёх issue, созданных с момента
+        # старта прогона, — красный прогон для ручного разбора.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          created=$(gh issue list --state all --limit 200 --json number,createdAt,labels \
+            | jq --arg t "$RUN_STARTED" \
+              '[.[] | select(.createdAt >= $t) | select(.labels | map(.name) | index("audit"))] | length' 2>/dev/null || echo 0)
+          echo "audit-related issues created in this run window: $created"
+          if [ "$created" -gt 3 ]; then
+            echo "::error::more than 3 issues created in one audit run — manual review needed"
+            exit 1
+          fi
