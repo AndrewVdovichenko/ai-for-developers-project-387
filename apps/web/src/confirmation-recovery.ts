@@ -26,6 +26,8 @@ class ConfirmationRecovery {
   private context = this.storage.load();
   private listeners = new Set<() => void>();
   private timer: ReturnType<typeof setTimeout> | undefined;
+  // Abandoned by reset(): the reply of an old poll is never awaited once the intent is gone.
+  private controller: AbortController | undefined;
   private running = false;
   // Replies of an abandoned conversation must never move the state of the current one.
   private conversation = 0;
@@ -77,13 +79,18 @@ class ConfirmationRecovery {
     };
   };
   // An explicit booking intent outweighs the previous conversation with the server: nothing of it
-  // may survive in the snapshot, because a known booking id sends the guest back to that booking.
+  // may survive — neither the snapshot a known booking id would redirect to, nor the stored
+  // context, nor the draft, nor the awaited reply of an in-flight request.
   reset() {
     this.conversation++;
     clearTimeout(this.timer);
+    // The abandoned reply must stop being awaited, not merely stop being trusted.
+    this.controller?.abort();
+    this.controller = undefined;
     this.running = false;
     this.context = undefined;
     this.storage.clear();
+    clearBookingDraft();
     this.update({
       locked: false,
       sending: false,
@@ -139,6 +146,11 @@ class ConfirmationRecovery {
     }
     throw new Error('Unknown result');
   }
+  // The 15-second deadline stays; reset gains the right to cancel the wait early.
+  private attemptSignal() {
+    this.controller ??= new AbortController();
+    return AbortSignal.any([this.controller.signal, AbortSignal.timeout(15000)]);
+  }
   private async replay(context: ConfirmationContext, conversation: number) {
     if (!context.body) return;
     const result = await confirmHold({
@@ -146,7 +158,7 @@ class ConfirmationRecovery {
       path: { id: context.holdId },
       headers: { 'Idempotency-Key': context.key },
       body: context.body,
-      signal: AbortSignal.timeout(15000),
+      signal: this.attemptSignal(),
     });
     if (conversation !== this.conversation) return;
     if (result.data) this.complete({ status: 200, body: result.data });
@@ -164,7 +176,7 @@ class ConfirmationRecovery {
       const result = await getGuestOperation({
         baseUrl: location.origin,
         path: { key: context.key },
-        signal: AbortSignal.timeout(15000),
+        signal: this.attemptSignal(),
       });
       if (conversation !== this.conversation) return;
       if (result.data?.state === 'completed') this.complete(result.data.response);
