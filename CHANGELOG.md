@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.10.0](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/compare/v0.9.0...v0.10.0) (2026-11-23)
+
+
+### Новые возможности
+
+* «Записаться ещё» при незакрытом подтверждении прекращает опрос прежней операции ([9ed767d](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/commit/9ed767d78a94f7c6e6084826be9cb8ff154146e9)), closes [#28](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/issues/28)
+
+
+### Исправления
+
+* сброс при незакрытом подтверждении по замечаниям ревью ([ed7615a](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/commit/ed7615a1d01660dbd99b950dcd6563a4d15d0cc1))
+
 ## [0.9.0](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/compare/v0.8.2...v0.9.0) (2026-11-23)
 
 
