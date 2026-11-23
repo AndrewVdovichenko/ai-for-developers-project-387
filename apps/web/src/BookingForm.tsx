@@ -1,7 +1,7 @@
 import { Alert, Button, Stack, TextInput } from '@mantine/core';
 import type { Hold } from '@calendar/api-client';
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { loadBookingDraft, saveBookingDraft } from './booking-draft';
 import { confirmationRecovery } from './confirmation-recovery';
 
@@ -50,6 +50,17 @@ export function BookingForm({
         <Alert role="alert" color={state.locked ? 'yellow' : 'red'}>
           {state.message}
         </Alert>
+      )}
+      {state.locked && !state.needsInput && (
+        // An explicit new booking intent outweighs an unresolved confirmation of the previous one.
+        <Button
+          component={Link}
+          to="/event-types"
+          variant="outline"
+          onClick={() => recovery.reset()}
+        >
+          Записаться ещё
+        </Button>
       )}
       {showForm && (
         <form
