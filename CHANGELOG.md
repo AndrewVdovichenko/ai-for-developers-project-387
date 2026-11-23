@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.0](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/compare/v0.8.2...v0.9.0) (2026-11-23)
+
+
+### Новые возможности
+
+* «Записаться ещё» сбрасывает контекст подтверждения целиком ([0cd6eb0](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/commit/0cd6eb078167c62881fd263bf5e3e9c2ed430a3a)), closes [#27](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/issues/27)
+* полный сброс подтверждения перебивает и начатую отправку ([82c806f](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/commit/82c806fddb9ca8a784c3e567f0b8511d29868c28)), closes [#27](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/issues/27)
+
 ## [0.8.2](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/compare/v0.8.1...v0.8.2) (2026-11-22)
 
 
