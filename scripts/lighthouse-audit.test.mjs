@@ -4,8 +4,8 @@
 //   1. demo-report + findings: ровно три ожидаемые находки с отпечатками;
 //   2. чистый отчёт: пустой findings.md (нет ложных находок);
 //   3. неполный отчёт: сломанный вход краснеет, а не озеленяется;
-//   4. формат отпечатка: регулярки из workflow-yml совпадают с тем, что
-//      реально генерирует скрипт, и не ловят литералы-плейсхолдеры.
+//   4. формат отпечатка: регулярки workflow-yml принимают сгенерированные
+//      скриптом строки и отклоняют литералы-плейсхолдеры.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
