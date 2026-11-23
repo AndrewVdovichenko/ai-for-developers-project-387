@@ -27,6 +27,8 @@ class ConfirmationRecovery {
   private listeners = new Set<() => void>();
   private timer: ReturnType<typeof setTimeout> | undefined;
   private running = false;
+  // Replies of an abandoned conversation must never move the state of the current one.
+  private conversation = 0;
   private snapshot: Snapshot = {
     locked: !!this.context && !this.context.bookingId,
     sending: false,
@@ -74,6 +76,23 @@ class ConfirmationRecovery {
       }
     };
   };
+  // An explicit booking intent outweighs the previous conversation with the server: nothing of it
+  // may survive in the snapshot, because a known booking id sends the guest back to that booking.
+  reset() {
+    this.conversation++;
+    clearTimeout(this.timer);
+    this.running = false;
+    this.context = undefined;
+    this.storage.clear();
+    this.update({
+      locked: false,
+      sending: false,
+      needsInput: false,
+      message: '',
+      error: undefined,
+      bookingId: undefined,
+    });
+  }
   private schedule() {
     clearTimeout(this.timer);
     if (!this.context || this.context.bookingId || !this.listeners.size || !navigator.onLine)
@@ -120,7 +139,7 @@ class ConfirmationRecovery {
     }
     throw new Error('Unknown result');
   }
-  private async replay(context: ConfirmationContext) {
+  private async replay(context: ConfirmationContext, conversation: number) {
     if (!context.body) return;
     const result = await confirmHold({
       baseUrl: location.origin,
@@ -129,6 +148,7 @@ class ConfirmationRecovery {
       body: context.body,
       signal: AbortSignal.timeout(15000),
     });
+    if (conversation !== this.conversation) return;
     if (result.data) this.complete({ status: 200, body: result.data });
     else if (result.error && result.response)
       this.complete({ status: result.response.status, body: result.error });
@@ -136,6 +156,7 @@ class ConfirmationRecovery {
   }
   private async recover() {
     if (this.running || !this.context || this.context.bookingId || !navigator.onLine) return;
+    const conversation = this.conversation;
     this.running = true;
     this.update({ message: 'Уточняем результат…' });
     const context = this.context;
@@ -145,9 +166,10 @@ class ConfirmationRecovery {
         path: { key: context.key },
         signal: AbortSignal.timeout(15000),
       });
+      if (conversation !== this.conversation) return;
       if (result.data?.state === 'completed') this.complete(result.data.response);
       else if (result.data?.state === 'unknown') {
-        if (context.body && navigator.onLine) await this.replay(context);
+        if (context.body && navigator.onLine) await this.replay(context, conversation);
         else if (!context.body)
           this.update({
             needsInput: true,
@@ -158,21 +180,26 @@ class ConfirmationRecovery {
     } catch {
       // A timeout or 503 never means that the server cancelled or refused the operation.
     } finally {
-      this.running = false;
-      if (this.context && !this.context.bookingId) {
-        this.context.attempt = (this.context.attempt ?? 0) + 1;
-        this.storage.persist(this.context);
-        if (!navigator.onLine) this.connection();
-        this.schedule();
+      if (conversation === this.conversation) {
+        this.running = false;
+        if (this.context && !this.context.bookingId) {
+          this.context.attempt = (this.context.attempt ?? 0) + 1;
+          this.storage.persist(this.context);
+          if (!navigator.onLine) this.connection();
+          this.schedule();
+        }
       }
     }
   }
   async submit(holdId: string, body: ConfirmBooking) {
     if (this.running || (this.context && !this.snapshot.needsInput)) return;
+    const conversation = this.conversation;
     this.running = true;
     this.update({ sending: true, error: undefined, message: '' });
     try {
       const fingerprint = await confirmationFingerprint(this.context?.holdId ?? holdId, body);
+      // A reset during the digest abandoned this conversation: its context must not outlive it.
+      if (conversation !== this.conversation) return;
       if (this.context && this.context.fingerprint !== fingerprint) {
         this.update({
           message:
@@ -198,20 +225,22 @@ class ConfirmationRecovery {
       }
       this.context = context;
       this.update({ locked: true, needsInput: false });
-      if (navigator.onLine) await this.replay(context);
+      if (navigator.onLine) await this.replay(context, conversation);
     } catch {
       // Persisted context remains authoritative until the original result is known.
     } finally {
-      this.running = false;
-      this.update({ sending: false });
-      if (this.context && !this.context.bookingId) {
-        if (!this.snapshot.needsInput || !navigator.onLine)
-          this.update({
-            message: navigator.onLine
-              ? 'Уточняем результат…'
-              : 'Нет соединения. Продолжим после восстановления связи',
-          });
-        this.schedule();
+      if (conversation === this.conversation) {
+        this.running = false;
+        this.update({ sending: false });
+        if (this.context && !this.context.bookingId) {
+          if (!this.snapshot.needsInput || !navigator.onLine)
+            this.update({
+              message: navigator.onLine
+                ? 'Уточняем результат…'
+                : 'Нет соединения. Продолжим после восстановления связи',
+            });
+          this.schedule();
+        }
       }
     }
   }
