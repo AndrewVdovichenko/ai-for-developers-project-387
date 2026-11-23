@@ -29,7 +29,11 @@ jobs:
     # файл воркфлоу для schedule должен лежать в main.
     if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # Худшая сумма шаговых таймаутов (3+11+15+15 ~ 44 + мелкие шаги) должна
+    # быть меньше job-таймаута: иначе Actions убьёт job посреди публикации,
+    # часть issue уже создана, RESULT-контракт не выполнен, а следующий
+    # прогон увидит неполный дедуп-список.
+    timeout-minutes: 55
     permissions:
       contents: read
       # Гейт находок и дедуп считаются детерминированными шагами; агент
@@ -40,6 +44,8 @@ jobs:
     env:
       APP_URL: ${{ vars.APP_URL }}
       JOURNAL_ISSUE: ${{ vars.AUDIT_JOURNAL_ISSUE }}
+      # Переменная OPENCODE_MODEL задана явно; конвенция репо — тот же
+      # fallback, что в opencode.yml.
       MODEL: ${{ vars.OPENCODE_MODEL || 'opencode/qwen3.8-flash' }}
       GH_REPO: ${{ github.repository }}
       TRAINING_DEMO: ${{ inputs.training_demo }}
@@ -57,19 +63,18 @@ jobs:
       - name: Stamp run start time
         run: echo "RUN_STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
 
-      # Установка через локальный composite action (тот же, что у
-      # opencode-review/triage): версия и SHA-256 зафиксированы в action.yml.
+      # Установка через локальный composite action opencode-review/triage:
+      # версия и SHA-256 зафиксированы в action.yml.
       - name: Install OpenCode
         timeout-minutes: 3
         uses: ./.github/actions/install-opencode
 
       # Wake-шаг не входит в требования задания, но без него простой
-      # бесплатный тариф даёт ложные находки (замер заглушки 503) или
-      # падение прогона. Инфраструктурный сбой ≠ находка: red run без
-      # публикации.
+      # бесплатный сервис даёт ложные находки: замер заглушки 503.
+      # Инфраструктурный сбой ≠ находка: красный прогон без публикаций.
       - name: Wake the app
         if: inputs.training_demo != true
-        timeout-minutes: 12
+        timeout-minutes: 11
         run: |
           set -euo pipefail
           if [ -z "${APP_URL:-}" ]; then
@@ -87,7 +92,7 @@ jobs:
 
       - name: Collect Lighthouse report
         id: collect
-        timeout-minutes: 20
+        timeout-minutes: 15
         env:
           AUDIT_DIR: ${{ runner.temp }}/audit
         run: |
@@ -229,10 +234,9 @@ jobs:
           prompt="${prompt//'{{EXISTING}}'/${existing_block:-[]}}"
 
           # Локальный запуск модели по паттерну opencode-triage: prompt
-          # передаётся аргументом. У события расписания нет комментария,
-          # из которого opencode github run взял бы инструкцию, поэтому
-          # здесь он не используется; gh пишет через Actions token
-          # (issues: write).
+          # передаётся аргументом. У события расписания нет комментария
+          # для github run, поэтому здесь используется локальный запуск;
+          # gh пишет через Actions token (issues: write).
           events="$RUNNER_TEMP/opencode-events.jsonl"
           status=0
           timeout --kill-after=15s "$MODEL_TIMEOUT" opencode run --model "$MODEL" --format json "$prompt" </dev/null >"$events" || status=$?
@@ -287,14 +291,20 @@ jobs:
 
       - name: Verify publishing cap
         # Сигнальная проверка капа ≤3: больше трёх issue, созданных с момента
-        # старта прогона, — красный прогон для ручного разбора.
+        # старта прогона, — красный прогон для ручного разбора. Сбой листинга
+        # тоже краснит: молчаливый ноль отключал бы защиту ровно в аварийной
+        # ветке, где она нужна.
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           created=$(gh issue list --state all --limit 200 --json number,createdAt,labels \
             | jq --arg t "$RUN_STARTED" \
-              '[.[] | select(.createdAt >= $t) | select(.labels | map(.name) | index("audit"))] | length' 2>/dev/null || echo 0)
+              '[.[] | select(.createdAt >= $t) | select(.labels | map(.name) | index("audit"))] | length')
+          if [ -z "$created" ]; then
+            echo "::error::cap check listing produced no count — manual review needed"
+            exit 1
+          fi
           echo "audit-related issues created in this run window: $created"
           if [ "$created" -gt 3 ]; then
             echo "::error::more than 3 issues created in one audit run — manual review needed"

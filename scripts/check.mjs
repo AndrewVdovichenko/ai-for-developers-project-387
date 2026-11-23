@@ -19,6 +19,7 @@ const commands = [
     ['--strict-exit', '--no-online', '--shellcheck=', ...workflows, '.github/dependabot.yml'],
   ],
   ['yarn', ['test']],
+  ['node', ['--test', 'scripts/lighthouse-audit.test.mjs']],
   ['yarn', ['build']],
   ['yarn', ['test:e2e']],
 ];
