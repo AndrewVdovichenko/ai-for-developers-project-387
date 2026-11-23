@@ -117,8 +117,16 @@ if (cmd === 'demo-report') {
   for (const b of BUDGETS) {
     const value =
       b.audit === null
-        ? (report?.categories?.performance?.score ?? 1)
-        : (report?.audits?.[b.audit]?.numericValue ?? 0);
+        ? report?.categories?.performance?.score
+        : report?.audits?.[b.audit]?.numericValue;
+    // Детерминированный гейт не догадывается: отсутствие значения —
+    // сломанный вход, а не «пройдено». Красный прогон без публикации.
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      console.error(
+        `::error::report lacks a finite ${b.key} value — malformed input, refusing to gate`,
+      );
+      process.exit(1);
+    }
     const failed = b.compare === 'lt' ? value < b.budget : value > b.budget;
     if (!failed) continue;
     const display = report?.audits?.[b.audit]?.displayValue ?? b.format(value);
