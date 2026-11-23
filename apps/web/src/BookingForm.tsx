@@ -51,8 +51,9 @@ export function BookingForm({
           {state.message}
         </Alert>
       )}
-      {state.locked && !state.needsInput && (
+      {state.locked && !state.sending && !state.needsInput && (
         // An explicit new booking intent outweighs an unresolved confirmation of the previous one.
+        // While the first POST is still awaiting its reply the escape appears only after timeout.
         <Button
           component={Link}
           to="/event-types"

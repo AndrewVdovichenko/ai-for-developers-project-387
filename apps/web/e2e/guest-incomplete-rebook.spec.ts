@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
-import type { Page } from '@playwright/test';
 import {
   createEventType,
   ownerAvailabilityGetAvailability,
@@ -51,11 +50,6 @@ async function setup() {
   ).data!.eventType;
 }
 
-async function fillGuest(page: Page, name: string, email: string) {
-  await page.getByLabel('Имя', { exact: true }).fill(name);
-  await page.getByLabel('Email', { exact: true }).fill(email);
-}
-
 test('«Записаться ещё» при незакрытом подтверждении прекращает опрос прежней операции', async ({
   page,
 }) => {
@@ -82,32 +76,36 @@ test('«Записаться ещё» при незакрытом подтвер
     await gate;
     await route.abort().catch(() => {});
   });
-  await page.clock.install();
-  await page.goto(`/booking/${type.id}`);
-  await page.getByLabel('День записи').selectOption('2026-11-07');
-  await page.getByRole('list', { name: 'Свободные Слоты' }).getByRole('button').first().click();
-  await fillGuest(page, 'Первый Гость', 'first@example.com');
-  await page.getByRole('button', { name: 'Подтвердить запись', exact: true }).click();
-  const firstKey = confirmPosts[0]!;
-  await expect(page.getByRole('alert')).toContainText('Уточняем результат');
-  await expect(page.getByLabel('Имя', { exact: true })).toBeDisabled();
-  // Интервал восстановления: через 1 с вкладка спрашивает сервер о прежней операции.
-  await page.clock.runFor(1000);
-  await expect
-    .poll(() => operations.filter((url) => url.includes(firstKey)).length, { timeout: 5000 })
-    .toBe(1);
-  // Явное намерение не ждёт разбирательства с прошлым: каталог открывается сразу.
-  await page.getByRole('link', { name: 'Записаться ещё' }).press('Enter');
-  await expect(page).toHaveURL(/\/event-types$/);
-  await expect(page.getByRole('heading', { name: type.name, exact: true })).toBeVisible();
-  // Полный сброс: зависший ответ прежней операции прерван, страница не ждёт его.
-  await expect
-    .poll(() => failed.filter((url) => url.includes(firstKey)).length, { timeout: 5000 })
-    .toBe(1);
-  // Ни одного нового запроса о прежней операции — цикл опроса отменён окончательно.
-  await page.clock.runFor(300000);
-  expect(operations.filter((url) => url.includes(firstKey))).toHaveLength(1);
-  release();
+  try {
+    await page.clock.install();
+    await page.goto(`/booking/${type.id}`);
+    await page.getByLabel('День записи').selectOption('2026-11-07');
+    await page.getByRole('list', { name: 'Свободные Слоты' }).getByRole('button').first().click();
+    await page.getByLabel('Имя', { exact: true }).fill('Первый Гость');
+    await page.getByLabel('Email', { exact: true }).fill('first@example.com');
+    await page.getByRole('button', { name: 'Подтвердить запись', exact: true }).click();
+    const firstKey = confirmPosts[0]!;
+    await expect(page.getByRole('alert')).toContainText('Уточняем результат');
+    await expect(page.getByLabel('Имя', { exact: true })).toBeDisabled();
+    // Интервал восстановления: через 1 с вкладка спрашивает сервер о прежней операции.
+    await page.clock.runFor(1000);
+    await expect
+      .poll(() => operations.filter((url) => url.includes(firstKey)).length, { timeout: 5000 })
+      .toBe(1);
+    // Явное намерение не ждёт разбирательства с прошлым: каталог открывается сразу.
+    await page.getByRole('link', { name: 'Записаться ещё' }).press('Enter');
+    await expect(page).toHaveURL(/\/event-types$/);
+    await expect(page.getByRole('heading', { name: type.name, exact: true })).toBeVisible();
+    // Полный сброс: зависший ответ прежней операции прерван, страница не ждёт его.
+    await expect
+      .poll(() => failed.filter((url) => url.includes(firstKey)).length, { timeout: 5000 })
+      .toBe(1);
+    // Ни одного нового запроса о прежней операции — цикл опроса отменён окончательно.
+    await page.clock.runFor(300000);
+    expect(operations.filter((url) => url.includes(firstKey))).toHaveLength(1);
+  } finally {
+    release();
+  }
   await page.unroute('**/api/holds/*/confirm');
   await page.unroute('**/api/operations/*');
   // Новая запись идёт собственным маршрутом и со своим ключом до самого подтверждения.
@@ -116,14 +114,15 @@ test('«Записаться ещё» при незакрытом подтвер
   await page.getByLabel('День записи').selectOption('2026-11-07');
   await page.getByRole('list', { name: 'Свободные Слоты' }).getByRole('button').nth(1).click();
   await expect(page.getByLabel('Имя', { exact: true })).toHaveValue('');
-  await fillGuest(page, 'Второй Гость', 'second@example.com');
+  await page.getByLabel('Имя', { exact: true }).fill('Второй Гость');
+  await page.getByLabel('Email', { exact: true }).fill('second@example.com');
   await page.getByRole('button', { name: 'Подтвердить запись', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Вы записаны' })).toBeVisible();
   const secondId = new URL(page.url()).pathname.split('/').pop()!;
   await expect(page.getByText(`Номер Записи: ${secondId}`)).toBeVisible();
   expect(confirmPosts).toHaveLength(2);
-  expect(confirmPosts[1]).not.toBe(firstKey);
+  expect(confirmPosts[1]).not.toBe(confirmPosts[0]);
   // Прежний ключ остался на единственном зависшем GET; новая запись его не касалась.
-  expect(operations.filter((url) => url.includes(firstKey))).toHaveLength(1);
+  expect(operations.filter((url) => url.includes(confirmPosts[0]!))).toHaveLength(1);
   expect(operations.some((url) => url.includes(confirmPosts[1]!))).toBe(false);
 });

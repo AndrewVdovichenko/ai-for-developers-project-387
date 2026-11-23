@@ -79,7 +79,8 @@ class ConfirmationRecovery {
     };
   };
   // An explicit booking intent outweighs the previous conversation with the server: nothing of it
-  // may survive in the snapshot, because a known booking id sends the guest back to that booking.
+  // may survive — neither the snapshot a known booking id would redirect to, nor the stored
+  // context, nor the draft, nor the awaited reply of an in-flight request.
   reset() {
     this.conversation++;
     clearTimeout(this.timer);
