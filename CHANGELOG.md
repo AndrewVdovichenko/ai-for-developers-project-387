@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.11.0](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/compare/v0.10.0...v0.11.0) (2026-11-23)
+
+
+### Новые возможности
+
+* периодический аудит производительности через opencode-audit.yml ([5615d7b](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/commit/5615d7b931ff2bba8d10b8da4c57be24ae524b69))
+* периодический аудит производительности через opencode-audit.yml ([3f47b54](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/commit/3f47b5466b114f7cf3228dcb5b05016649bbb71d)), closes [#36](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/issues/36)
+
+
+### Исправления
+
+* guard ветки без зависимости от schedule payload, правка комментария ([750232e](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/commit/750232ef50da365f755b9181f8261557ed50a11b)), closes [#36](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/issues/36)
+* замечания авторевью 5effd60: бюджет таймаутов, строгий cap-check, тесты ([65244ed](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/commit/65244eda249afffe3e167cda03ebe4295643b0a5)), closes [#36](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/issues/36)
+* замечания ревью 65244ed: дедуп по лейблу, default-deny, таймауты ([da450c5](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/commit/da450c5b6ee509c2ed36ccdb0995a90215695da3)), closes [#36](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/issues/36)
+* строгий гейт находок — отсутствующая метрика не считается пройденной ([5effd60](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/commit/5effd6057e62cf67bf40f34fe223a6f7068763c8)), closes [#36](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/issues/36)
+
 ## [0.10.0](https://github.com/AndrewVdovichenko/ai-for-developers-project-387/compare/v0.9.0...v0.10.0) (2026-11-23)
 
 
